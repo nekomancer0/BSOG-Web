@@ -7,7 +7,10 @@ export default {
 	content: ['./src/**/*.{html,js,svelte,ts}'],
 
 	theme: {
-		extend: {}
+		extend: {},
+		container: {
+			padding: '2rem'
+		}
 	},
 
 	plugins: [typography, forms, containerQueries]
