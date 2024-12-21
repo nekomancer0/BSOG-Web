@@ -1,11 +1,10 @@
-import { EventEmitter } from 'events';
 import type { Effect, Unit } from './types.d';
 
 type LandEvents = {
 	unitOn: [unit: Unit];
 };
 
-export class Steppes extends EventEmitter<LandEvents> {
+export class Steppes extends EventTarget {
 	id = 0;
 	static id = 0;
 	name: string = 'Land - Steppes';
@@ -18,11 +17,20 @@ export class Steppes extends EventEmitter<LandEvents> {
 		super();
 
 		this.on('unitOn', (unit) => {
-			this.effect({ units: [unit] });
+			this.effect([unit]);
 		});
 	}
 
-	effect: Effect<{ units: Unit[] }> = ({ units }) => {
+	on(event: 'unitOn', callback: (unit: Unit) => void) {
+		// @ts-ignore
+		this.addEventListener(event, callback);
+	}
+
+	emit(event: 'unitOn', unit: Unit) {
+		this.dispatchEvent(new CustomEvent(event, { detail: unit }));
+	}
+
+	effect: Effect<[units: Unit[]]> = (units) => {
 		units.forEach((unit) => {
 			if (unit.pos?.x === this.position?.x && unit.pos?.y === this.position?.y) {
 				let oldDodge = unit.stats.dodge;

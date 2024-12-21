@@ -1,10 +1,26 @@
 <script lang="ts">
 	import { Board } from '$lib/board';
-	import * as lands from '$lib/lands';
+	import * as Cards from '$lib/cards';
+	import { generateDeckForRyuu, isHeroUnit } from '$lib/decks';
 	import { onMount } from 'svelte';
 
-	onMount(() => {
+	let ryuu = new Cards.Ryuu();
+
+	let keys = Object.keys(Cards) as (keyof typeof Cards)[];
+
+	keys.forEach((key) => {
+		let card = Cards[key];
+		if (isHeroUnit(card)) {
+			console.log(card);
+		}
+	});
+
+	onMount(async () => {
 		let board = new Board();
+
+		let deck = await generateDeckForRyuu();
+		console.log(deck);
+		board.spawnUnit(ryuu);
 
 		// Generer les divs pour accueillir les terrains sur le board
 
@@ -39,9 +55,9 @@
 				img.src = fullUrlImage;
 
 				img.onload = () => {
-					row.style.backgroundSize = `${img.width / 15}px ${img.height / 15}px`;
-					row.style.height = `${img.height / 15}px`;
-					row.style.width = `${img.width / 15}px`;
+					row.style.backgroundSize = `${img.width / 14}px ${img.height / 14}px`;
+					row.style.height = `${img.height / 14}px`;
+					row.style.width = `${img.width / 14}px`;
 
 					// Listen for Alt key to see the land bigger
 					row.addEventListener('click', (event) => {
@@ -72,12 +88,46 @@
 
 <div class="container">
 	<div class="board"></div>
-
 	<div class="preview"></div>
+
+	<div class="player-view">
+		<button class="draw">Draw</button>
+		<button class="end-turn">End Turn</button>
+		<div class="hand"></div>
+	</div>
 </div>
 
 <style>
 	:global(.container) {
+	}
+
+	.player-view {
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+		gap: 10px;
+		background-color: rgb(255, 255, 255);
+		position: absolute;
+		bottom: 20px;
+		right: 20px;
+		z-index: 1;
+		box-sizing: border-box;
+		font-size: 1.5rem;
+		font-family: 'Dosis', sans-serif;
+		color: rgb(0, 0, 0);
+		font-weight: 600;
+		font-style: normal;
+	}
+
+	.player-view button {
+		background-color: cyan;
+		border-radius: 15px;
+		padding: 5px;
+		border: 1px solid #0f0f0f;
+		font-size: 1.3rem;
+		font-family: 'Dosis', sans-serif;
+		font-weight: 600;
+		font-style: normal;
 	}
 
 	:global(.board) {
@@ -101,7 +151,6 @@
 
 	:global(.row) {
 		background-color: rgb(255, 255, 255);
-		border: 1px solid black;
 	}
 
 	:global(.col) {
