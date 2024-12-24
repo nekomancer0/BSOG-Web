@@ -63,3 +63,19 @@ export const Ryuu = new Hero({
 		},
 		description: 'Gain 2 ATK'
 	});
+
+export const DummyCompanion = new Companion({
+	name: 'Dummy Companion',
+	id: 'dummy1',
+	image: '/cards/0.png',
+	element: 'Primordial',
+	type: 'Companion',
+	cost: [],
+	stats: {
+		hp: 5,
+		currentHp: 5,
+		atk: 2,
+		range: 1,
+		movement: 2
+	}
+});

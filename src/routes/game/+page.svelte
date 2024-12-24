@@ -3,7 +3,7 @@
 	import { Board } from '$lib/board';
 	import * as Cards from '$lib/cards';
 	import { generateDeckForRyuu } from '$lib/decks';
-	import { BaseThing, type AbilityCost, type Type } from '$lib/types';
+	import { BaseThing, Unit, type AbilityCost, type Type } from '$lib/types';
 	import { onMount } from 'svelte';
 	import { writable } from 'svelte/store';
 
@@ -13,20 +13,25 @@
 	const selectedCard = writable<any>(null);
 	const myResources = writable<AbilityCost>([]);
 
-	$: {
+	$effect(() => {
 		if ($board) {
 			myResources.set([{ amount: 5, type: getDeckResources()[0].type }]);
 		}
-	}
+	});
 
 	onMount(async () => {
 		const newBoard = new Board();
 		const ryuu = Cards.Ryuu;
-		newBoard.spawnUnit(ryuu);
 		board.set(newBoard);
 
+		$board?.spawnUnit(ryuu);
+
 		const deck = await generateDeckForRyuu();
-		hand.set(deck.slice(0, 5));
+		hand.set([...deck.slice(0, 5), Cards.DummyCompanion]);
+
+		setInterval(() => {
+			hand.set($hand.filter((c) => typeof c !== 'undefined'));
+		}, 1000);
 
 		$board?.on('phaseChange', (phase: string) => {
 			console.log('Phase changed:', phase);
@@ -37,11 +42,11 @@
 		}, 1000);
 	});
 
-	$: {
+	$effect(() => {
 		if ($previewImage) {
 			console.log('Preview image updated:', $previewImage);
 		}
-	}
+	});
 
 	function playCard(card: any, position: { x: number; y: number }) {
 		if (!$board) return;
@@ -59,7 +64,7 @@
 	function getDeckResources() {
 		const resources: AbilityCost = [];
 		$hand.forEach((card: BaseThing<any>) => {
-			if (card.cost && !resources.includes(card.cost[0])) {
+			if (card.cost && card.cost.length > 0 && !resources.includes(card.cost[0])) {
 				card.cost.forEach((resource) => {
 					resources.push(resource);
 				});
@@ -79,6 +84,57 @@
 
 	function clearPreview() {
 		previewImage.set(null);
+	}
+
+	let selectedUnit: Unit | null = null;
+	let validMoves: Array<{ x: number; y: number }> = [];
+	let validAttacks: Array<{ x: number; y: number }> = [];
+
+	function handleTileClick(x: number, y: number) {
+		if (!$board) return;
+
+		if ($selectedCard && ($selectedCard.type === 'Hero' || $selectedCard.type === 'Companion')) {
+			// Place new unit
+			if ($board.placeUnit($selectedCard, { x, y })) {
+				selectedCard.set(null);
+				hand.update((h) => h.filter((c) => c !== $selectedCard));
+			}
+		} else if (selectedUnit) {
+			// Move selected unit
+			if ($board.moveUnit(selectedUnit, { x, y })) {
+				selectedUnit = null;
+				validMoves = [];
+				validAttacks = [];
+			}
+		}
+	}
+
+	function handleUnitClick(unit: Unit) {
+		if (!$board) return;
+
+		if (selectedUnit === unit) {
+			// Deselect unit
+			selectedUnit = null;
+			validMoves = [];
+			validAttacks = [];
+		} else {
+			// Select unit and calculate valid moves/attacks
+			selectedUnit = unit;
+			validMoves = [];
+			validAttacks = [];
+
+			// Calculate valid moves and attacks
+			for (let x = 0; x < 8; x++) {
+				for (let y = 0; y < 8; y++) {
+					if ($board.canMoveTo(unit, { x, y })) {
+						validMoves.push({ x, y });
+					}
+					if ($board.canAttack(unit, { x, y })) {
+						validAttacks.push({ x, y });
+					}
+				}
+			}
+		}
 	}
 </script>
 
@@ -117,22 +173,32 @@
 			{#each Array(8) as _, x}
 				<div class="col col-{x}">
 					{#each Array(8) as _, y}
+						<!-- svelte-ignore a11y_click_events_have_key_events -->
 						<!-- svelte-ignore a11y_no_static_element_interactions -->
 						<div
 							class="tile"
-							onmouseenter={() => {
-								const land = $board.lands.find((l) => l.pos.x === x && l.pos.y === y);
-								if (land) handlePreview(land.land.image);
-							}}
-							onmouseleave={clearPreview}
+							class:valid-move={validMoves.some((pos) => pos.x === x && pos.y === y)}
+							class:valid-attack={validAttacks.some((pos) => pos.x === x && pos.y === y)}
+							onclick={() => handleTileClick(x, y)}
 						>
+							<!-- Land -->
 							<img
 								class="land"
-								src={`/img/lands/${
-									$board.lands.find((l) => l.pos.x === x && l.pos.y === y)?.land.id
-								}.png`}
+								src={`/img/lands/${$board.lands.find((l) => l.pos.x === x && l.pos.y === y)?.land.id}.png`}
 								alt="Land"
 							/>
+
+							<!-- Unit -->
+							{#if $board.getUnitAt({ x, y })}
+								{@const unit = $board.getUnitAt({ x, y })}
+								<div
+									class="unit"
+									class:selected={selectedUnit === unit}
+									onclick={() => handleUnitClick(unit!)}
+								>
+									<img src={'img' + unit?.image} alt={unit?.name} />
+								</div>
+							{/if}
 						</div>
 					{/each}
 				</div>
@@ -347,5 +413,18 @@
 		to {
 			opacity: 1;
 		}
+	}
+
+	/* Add to existing styles */
+	.valid-move {
+		background: rgba(0, 255, 0, 0.2);
+	}
+
+	.valid-attack {
+		background: rgba(255, 0, 0, 0.2);
+	}
+
+	.unit.selected {
+		outline: 2px solid yellow;
 	}
 </style>

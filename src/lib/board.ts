@@ -115,15 +115,85 @@ export class Board extends EventTarget implements BoardInterface {
 		this.emit('unitDelete', unit);
 	}
 
-	/**
-	 * Moves a unit to a new position and triggers the move event.
-	 * @param unit - The unit to move.
-	 * @param position - The new position of the unit.
-	 */
-	moveUnit(unit: Unit, position: { x: number; y: number }): void {
-		// @ts-ignore
-		this.units = this.units.map((u) => (u.id === unit.id ? { ...u, pos: position } : u));
-		this.emit('unitMove', unit, position);
+	// Check if a position is within the board boundaries
+	private isValidPosition(pos: { x: number; y: number }): boolean {
+		return pos.x >= 0 && pos.x < 8 && pos.y >= 0 && pos.y < 8;
+	}
+
+	// Calculate Manhattan distance between two positions
+	private calculateDistance(
+		pos1: { x: number; y: number },
+		pos2: { x: number; y: number }
+	): number {
+		return Math.abs(pos1.x - pos2.x) + Math.abs(pos1.y - pos2.y);
+	}
+
+	// Get unit at a specific position
+	getUnitAt(pos: { x: number; y: number }): Unit | undefined {
+		return this.units.find((unit) => unit.pos?.x === pos.x && unit.pos?.y === pos.y);
+	}
+
+	// Check if a unit can move to a position
+	canMoveTo(unit: Unit, targetPos: { x: number; y: number }): boolean {
+		if (!unit.pos || !this.isValidPosition(targetPos)) return false;
+
+		// Calculate distance
+		const distance = this.calculateDistance(unit.pos, targetPos);
+
+		// Check if movement is within unit's movement range
+		if (distance > unit.stats.movement) return false;
+
+		// Check if target position is occupied
+		if (this.getUnitAt(targetPos)) return false;
+
+		return true;
+	}
+
+	// Check if a unit can attack a target position
+	canAttack(unit: Unit, targetPos: { x: number; y: number }): boolean {
+		if (!unit.pos || !this.isValidPosition(targetPos)) return false;
+
+		// Calculate distance
+		const distance = this.calculateDistance(unit.pos, targetPos);
+
+		// Check if target is within attack range
+		return distance <= unit.stats.range;
+	}
+
+	// Move unit to new position
+	moveUnit(unit: Unit, newPos: { x: number; y: number }): boolean {
+		if (!this.canMoveTo(unit, newPos)) return false;
+
+		const oldPos = unit.pos;
+		unit.pos = { ...newPos };
+
+		// Trigger events
+		this.emit('unitMove', unit, newPos);
+
+		// Handle land effects
+		const landEntry = this.lands.find((l) => l.pos.x === newPos.x && l.pos.y === newPos.y);
+		if (landEntry) {
+			landEntry.land.emit('unitEnter', unit);
+		}
+
+		return true;
+	}
+
+	// Place unit on board
+	placeUnit(unit: Unit, position: { x: number; y: number }): boolean {
+		if (!this.isValidPosition(position) || this.getUnitAt(position)) return false;
+
+		unit.pos = { ...position };
+		this.units.push(unit);
+		this.emit('unitSpawn', unit);
+
+		// Handle land effects
+		const landEntry = this.lands.find((l) => l.pos.x === position.x && l.pos.y === position.y);
+		if (landEntry) {
+			landEntry.land.emit('unitEnter', unit);
+		}
+
+		return true;
 	}
 
 	/**
