@@ -1,160 +1,191 @@
 <script lang="ts">
 	import { Board } from '$lib/board';
 	import * as Cards from '$lib/cards';
-	import { generateDeckForRyuu, isHeroUnit } from '$lib/decks';
+	import { generateDeckForRyuu } from '$lib/decks';
+	import { Artifact, Card, Companion, Hero, Land, Spell, Unit } from '$lib/types';
 	import { onMount } from 'svelte';
+	import { writable } from 'svelte/store';
 
-	let ryuu = new Cards.Ryuu();
-
-	let keys = Object.keys(Cards) as (keyof typeof Cards)[];
-
-	keys.forEach((key) => {
-		let card = Cards[key];
-		if (isHeroUnit(card)) {
-			console.log(card);
-		}
-	});
+	const board = writable<Board | null>(null);
+	const previewImage = writable<string | null>(null);
+	const hand = writable<(Spell<any> | Land<any> | Hero<any> | Companion<any> | Artifact<any>)[]>(
+		[]
+	);
 
 	onMount(async () => {
-		let board = new Board();
+		const newBoard = new Board();
+		const ryuu = Cards.Ryuu;
+		newBoard.spawnUnit(ryuu);
+		board.set(newBoard);
 
-		let deck = await generateDeckForRyuu();
-		console.log(deck);
-		board.spawnUnit(ryuu);
-
-		// Generer les divs pour accueillir les terrains sur le board
-
-		for (let x = 0; x <= 8; x++) {
-			let col = document.createElement('div');
-			col.classList.add('col', `col-${x}`);
-
-			for (let y = 0; y <= 8; y++) {
-				let row = document.createElement('div');
-				row.classList.add('row', `row-${y}`);
-
-				col.appendChild(row);
-			}
-
-			document.querySelector('.board')!.appendChild(col);
-		}
-
-		function getRowByPos(pos: { x: number; y: number }) {
-			return document.querySelector<HTMLDivElement>(`.col-${pos.x} .row-${pos.y}`);
-		}
-
-		board.lands.forEach((entry) => {
-			let row = getRowByPos(entry.pos);
-			if (row) {
-				let fullUrlImage = `/img/lands/${entry.land.id}.png`;
-
-				// Set background image
-				row.style.backgroundImage = `url(${fullUrlImage})`;
-
-				// Apply right size of the div
-				let img = new Image();
-				img.src = fullUrlImage;
-
-				img.onload = () => {
-					row.style.backgroundSize = `${img.width / 14}px ${img.height / 14}px`;
-					row.style.height = `${img.height / 14}px`;
-					row.style.width = `${img.width / 14}px`;
-
-					// Listen for Alt key to see the land bigger
-					row.addEventListener('click', (event) => {
-						event.preventDefault();
-						let previewDiv = document.querySelector('.preview')!;
-
-						let img = document.createElement('img');
-						img.src = fullUrlImage;
-
-						previewDiv.innerHTML = '';
-						previewDiv.appendChild(img);
-
-						// Preview image clear
-
-						let func = () => {
-							previewDiv.innerHTML = '';
-
-							previewDiv.removeEventListener('click', func);
-						};
-
-						previewDiv.addEventListener('click', func);
-					});
-				};
-			}
-		});
+		// Génère le deck du joueur
+		const deck = await generateDeckForRyuu();
+		hand.set(deck.slice(0, 5)); // Exemple : prend les 5 premières cartes comme main de départ
 	});
+
+	function handlePreview(imageUrl: string) {
+		previewImage.set(imageUrl);
+	}
+
+	function clearPreview() {
+		previewImage.set(null);
+	}
+
+	function playCard(
+		card: Spell<any> | Land<any> | Hero<any> | Companion<any> | Artifact<any>,
+		position: { x: number; y: number }
+	) {
+		board.update((b) => {
+			if (card instanceof Land) {
+				console.log('Played', card);
+				b?.playLand(card, position);
+			}
+			return b;
+		});
+
+		let index = $hand.indexOf(card);
+		// Supprime la carte jouée de la main
+		hand.set($hand.filter((_, i) => i !== index));
+	}
+
+	function endTurn() {
+		board.update((b) => {
+			b?.endTurn();
+			return b;
+		});
+	}
 </script>
 
 <div class="container">
-	<div class="board"></div>
-	<div class="preview"></div>
+	<div class="board">
+		{#if $board}
+			{#each Array(8) as _, x}
+				<div class="col col-{x}">
+					{#each Array(8) as _, y}
+						<div
+							class="tile"
+							onclick={() =>
+								handlePreview(
+									`/img/lands/${$board!.lands.find((l) => l.pos.x === x && l.pos.y === y)?.land.id}.png`
+								)}
+						>
+							<img
+								class="land"
+								src={`/img/lands/${$board!.lands.find((l) => l.pos.x === x && l.pos.y === y)?.land.id}.png`}
+								alt="Land"
+							/>
+						</div>
+					{/each}
+				</div>
+			{/each}
+		{/if}
+	</div>
+
+	{#if $previewImage}
+		<div class="preview" onclick={clearPreview}>
+			<img src={$previewImage} alt="Preview" />
+		</div>
+	{/if}
 
 	<div class="player-view">
-		<button class="draw">Draw</button>
-		<button class="end-turn">End Turn</button>
-		<div class="hand"></div>
+		<button class="draw" onclick={() => console.log('Draw card functionality pending!')}
+			>Draw</button
+		>
+		<button class="end-turn" onclick={endTurn}>End Turn</button>
+		<div class="hand">
+			{#each $hand as card}
+				<div class="card" onclick={() => playCard(card, { x: 0, y: 0 })}>
+					{#if card instanceof Land}
+						<img src={`/img/lands/${card.id}.png`} alt={card.name} />
+						<p>{card.name}</p>
+					{:else}
+						<img src={`/img/cards/${card.id}.png`} alt={card.name} />
+						<p>{card.name}</p>
+					{/if}
+				</div>
+			{/each}
+		</div>
 	</div>
+
+	<img class="hero-card" alt="Hero" src="" />
 </div>
 
 <style>
-	:global(.container) {
+	.container {
+		position: relative;
+		width: 100%;
+		height: 100vh;
+	}
+
+	.hero-card {
+		position: absolute;
+		bottom: 20px;
+		left: 20px;
+		z-index: 1;
 	}
 
 	.player-view {
 		display: flex;
-		flex-direction: row;
-		justify-content: space-between;
+		flex-direction: column;
+		justify-content: center;
 		gap: 10px;
-		background-color: rgb(255, 255, 255);
 		position: absolute;
-		bottom: 20px;
 		right: 20px;
 		z-index: 1;
-		box-sizing: border-box;
-		font-size: 1.5rem;
-		font-family: 'Dosis', sans-serif;
-		color: rgb(0, 0, 0);
-		font-weight: 600;
-		font-style: normal;
+		top: 20px;
 	}
 
-	.player-view button {
-		background-color: cyan;
-		border-radius: 15px;
-		padding: 5px;
-		border: 1px solid #0f0f0f;
-		font-size: 1.3rem;
-		font-family: 'Dosis', sans-serif;
-		font-weight: 600;
-		font-style: normal;
-	}
-
-	:global(.board) {
+	.player-view .hand {
 		display: flex;
 		flex-direction: column;
-		position: absolute;
-		left: 50%;
-		top: 50%;
-		transform: translate(-50%, -50%);
-		z-index: -1;
+		gap: 10px;
 	}
 
 	:global(.preview) {
 		position: absolute;
+		width: 37%;
 		left: 50%;
 		top: 50%;
 		transform: translate(-50%, -50%);
-
-		width: 30%;
+		z-index: 2;
 	}
-
-	:global(.row) {
-		background-color: rgb(255, 255, 255);
-	}
-
-	:global(.col) {
+	.player-view .card {
 		display: flex;
-		background-color: rgb(255, 255, 255);
+		flex-direction: column;
+		align-items: center;
+		width: 100px;
+		cursor: pointer;
+	}
+
+	.player-view button {
+		padding: 10px;
+		font-size: 1.2rem;
+		border-radius: 5px;
+		border: 1px solid black;
+	}
+
+	.board {
+		position: absolute;
+
+		left: 20%;
+		top: 1%;
+
+		display: grid;
+		grid-template-columns: repeat(8, 1fr);
+		width: 60%;
+		margin: 0 auto;
+	}
+
+	.tile {
+		position: relative;
+		width: 100%;
+		padding-bottom: 100%;
+	}
+
+	.tile img {
+		position: absolute;
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
 	}
 </style>

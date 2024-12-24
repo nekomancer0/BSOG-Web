@@ -1,11 +1,7 @@
 // Generate a random deck of cards from the same elemental type
 
-import type { Card, Type } from './types';
 import * as Cards from './cards';
-
-export function isHeroUnit<T extends { isHero: boolean }>(card: T) {
-	return card.isHero;
-}
+import * as Lands from './lands';
 
 export async function generateDeckForRyuu() {
 	// Retrieve card list json
@@ -13,9 +9,10 @@ export async function generateDeckForRyuu() {
 	try {
 		const module = JSON.parse(await (await fetch('/decks/ryuu.json')).text());
 
-		let cardNames: (keyof typeof Cards)[] = module.list;
+		let cardNames: (keyof typeof Cards | keyof typeof Lands)[] = module.list;
 
-		let cards = cardNames.map((name) => new Cards[name]());
+		// @ts-ignore
+		let cards = cardNames.map((name) => (Cards[name] ? Cards[name] : Lands[name]));
 
 		return cards;
 	} catch (e) {
