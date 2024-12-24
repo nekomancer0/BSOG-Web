@@ -43,10 +43,6 @@
 		$board?.advancePhase();
 	}
 
-	function endTurn() {
-		$board?.endTurn();
-	}
-
 	function handlePreview(imageUrl: string) {
 		previewImage.set('img' + imageUrl);
 	}
@@ -144,15 +140,20 @@
 		border-radius: 8px;
 	}
 
-	.resources {
+	:global(.resources) {
 		display: flex;
 		gap: 1rem;
 	}
 
-	.resource {
+	:global(.resource) {
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
+	}
+
+	:global(.resource img) {
+		width: 50px;
+		height: 50px;
 	}
 
 	.board {
