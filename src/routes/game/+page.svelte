@@ -1,16 +1,14 @@
+<!-- src/routes/game/+page.svelte -->
 <script lang="ts">
 	import { Board } from '$lib/board';
 	import * as Cards from '$lib/cards';
 	import { generateDeckForRyuu } from '$lib/decks';
-	import { Artifact, Card, Companion, Hero, Land, Spell, Unit } from '$lib/types';
 	import { onMount } from 'svelte';
 	import { writable } from 'svelte/store';
 
 	const board = writable<Board | null>(null);
+	const hand = writable<any[]>([]);
 	const previewImage = writable<string | null>(null);
-	const hand = writable<(Spell<any> | Land<any> | Hero<any> | Companion<any> | Artifact<any>)[]>(
-		[]
-	);
 
 	onMount(async () => {
 		const newBoard = new Board();
@@ -18,60 +16,54 @@
 		newBoard.spawnUnit(ryuu);
 		board.set(newBoard);
 
-		// Génère le deck du joueur
 		const deck = await generateDeckForRyuu();
-		hand.set(deck.slice(0, 5)); // Exemple : prend les 5 premières cartes comme main de départ
+		hand.set(deck.slice(0, 5));
 	});
 
+	function playCard(card: any, position: { x: number; y: number }) {
+		$board?.playLand(card, position);
+		hand.update((h) => h.filter((c) => c !== card));
+	}
+
+	function endTurn() {
+		$board?.endTurn();
+	}
+
 	function handlePreview(imageUrl: string) {
-		previewImage.set(imageUrl);
+		previewImage.set('img' + imageUrl);
 	}
 
 	function clearPreview() {
 		previewImage.set(null);
 	}
-
-	function playCard(
-		card: Spell<any> | Land<any> | Hero<any> | Companion<any> | Artifact<any>,
-		position: { x: number; y: number }
-	) {
-		board.update((b) => {
-			if (card instanceof Land) {
-				console.log('Played', card);
-				b?.playLand(card, position);
-			}
-			return b;
-		});
-
-		let index = $hand.indexOf(card);
-		// Supprime la carte jouée de la main
-		hand.set($hand.filter((_, i) => i !== index));
-	}
-
-	function endTurn() {
-		board.update((b) => {
-			b?.endTurn();
-			return b;
-		});
-	}
 </script>
 
-<div class="container">
+<div class="game-container">
+	{#if $previewImage}
+		<div class="preview-overlay">
+			<img src={$previewImage} alt="Card Preview" class="preview-image" />
+		</div>
+	{/if}
+
 	<div class="board">
 		{#if $board}
 			{#each Array(8) as _, x}
 				<div class="col col-{x}">
 					{#each Array(8) as _, y}
+						<!-- svelte-ignore a11y_no_static_element_interactions -->
 						<div
 							class="tile"
-							onclick={() =>
-								handlePreview(
-									`/img/lands/${$board!.lands.find((l) => l.pos.x === x && l.pos.y === y)?.land.id}.png`
-								)}
+							onmouseenter={() => {
+								const land = $board.lands.find((l) => l.pos.x === x && l.pos.y === y);
+								if (land) handlePreview(land.land.image);
+							}}
+							onmouseleave={clearPreview}
 						>
 							<img
 								class="land"
-								src={`/img/lands/${$board!.lands.find((l) => l.pos.x === x && l.pos.y === y)?.land.id}.png`}
+								src={`/img/lands/${
+									$board.lands.find((l) => l.pos.x === x && l.pos.y === y)?.land.id
+								}.png`}
 								alt="Land"
 							/>
 						</div>
@@ -81,111 +73,109 @@
 		{/if}
 	</div>
 
-	{#if $previewImage}
-		<div class="preview" onclick={clearPreview}>
-			<img src={$previewImage} alt="Preview" />
-		</div>
-	{/if}
-
-	<div class="player-view">
-		<button class="draw" onclick={() => console.log('Draw card functionality pending!')}
-			>Draw</button
-		>
-		<button class="end-turn" onclick={endTurn}>End Turn</button>
+	<div class="player-area">
+		<button onclick={endTurn}>End Turn</button>
 		<div class="hand">
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			{#each $hand as card}
-				<div class="card" onclick={() => playCard(card, { x: 0, y: 0 })}>
-					{#if card instanceof Land}
-						<img src={`/img/lands/${card.id}.png`} alt={card.name} />
-						<p>{card.name}</p>
-					{:else}
-						<img src={`/img/cards/${card.id}.png`} alt={card.name} />
-						<p>{card.name}</p>
-					{/if}
+				<!-- svelte-ignore a11y_click_events_have_key_events -->
+				<div
+					class="card"
+					onclick={() => playCard(card, { x: 0, y: 0 })}
+					onmouseenter={() => handlePreview(card.image)}
+					onmouseleave={clearPreview}
+				>
+					<img src={'img' + card.image} alt={card.name} />
 				</div>
 			{/each}
 		</div>
 	</div>
-
-	<img class="hero-card" alt="Hero" src="" />
 </div>
 
 <style>
-	.container {
-		position: relative;
-		width: 100%;
+	.game-container {
+		display: grid;
+		grid-template-columns: 1fr 300px;
 		height: 100vh;
-	}
-
-	.hero-card {
-		position: absolute;
-		bottom: 20px;
-		left: 20px;
-		z-index: 1;
-	}
-
-	.player-view {
-		display: flex;
-		flex-direction: column;
-		justify-content: center;
-		gap: 10px;
-		position: absolute;
-		right: 20px;
-		z-index: 1;
-		top: 20px;
-	}
-
-	.player-view .hand {
-		display: flex;
-		flex-direction: column;
-		gap: 10px;
-	}
-
-	:global(.preview) {
-		position: absolute;
-		width: 37%;
-		left: 50%;
-		top: 50%;
-		transform: translate(-50%, -50%);
-		z-index: 2;
-	}
-	.player-view .card {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		width: 100px;
-		cursor: pointer;
-	}
-
-	.player-view button {
-		padding: 10px;
-		font-size: 1.2rem;
-		border-radius: 5px;
-		border: 1px solid black;
+		padding: 20px;
+		gap: 20px;
+		position: relative;
 	}
 
 	.board {
-		position: absolute;
-
-		left: 20%;
-		top: 1%;
-
 		display: grid;
 		grid-template-columns: repeat(8, 1fr);
-		width: 60%;
-		margin: 0 auto;
+		gap: 2px;
+		background: #2a2a2a;
+		padding: 10px;
+		border-radius: 8px;
 	}
 
-	.tile {
-		position: relative;
-		width: 100%;
-		padding-bottom: 100%;
+	.player-area {
+		display: flex;
+		flex-direction: column;
+		gap: 20px;
 	}
 
-	.tile img {
-		position: absolute;
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
+	.hand {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+	}
+
+	:global(.preview-overlay) {
+		position: fixed;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		z-index: 1000;
+		pointer-events: none;
+	}
+
+	:global(.preview-image) {
+		max-height: 80vh;
+		max-width: 80vw;
+		object-fit: contain;
+		border-radius: 10px;
+		box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+	}
+
+	:global(.card) {
+		background: #3a3a3a;
+		padding: 10px;
+		border-radius: 8px;
+		cursor: pointer;
+		transition: transform 0.2s ease;
+	}
+
+	.card:hover {
+		transform: scale(1.05);
+	}
+
+	:global(.tile) {
+		aspect-ratio: 1;
+		background: #3a3a3a;
+		border-radius: 4px;
+		overflow: hidden;
+		cursor: pointer;
+		transition: transform 0.2s ease;
+	}
+
+	:global(.tile:hover) {
+		transform: scale(1.05);
+	}
+
+	/* Optional: Add animation for the preview */
+	.preview-overlay {
+		animation: fadeIn 0.2s ease;
+	}
+
+	@keyframes fadeIn {
+		from {
+			opacity: 0;
+		}
+		to {
+			opacity: 1;
+		}
 	}
 </style>

@@ -5,7 +5,7 @@ import { Hero, Spell, Artifact, Companion, type Type, Unit } from './types';
 export const Relief = new Spell({
 	name: 'Relief',
 	id: '0',
-	image: '/cards/relief.png',
+	image: '/cards/0.png',
 	element: 'Primordial',
 	type: 'Spell',
 	effect: (target: Unit) => {
