@@ -18,9 +18,9 @@ export class Board extends EventTarget implements BoardInterface {
 	units: Unit[] = [];
 	lands: LandEntry[] = [];
 	currentTurn: number = 0;
-
+	deck: any[] = [];
 	currentPhase: 'Draw' | 'Main' | 'Combat' | 'End' = 'Draw';
-
+	hand: any[] = [];
 	resources = {
 		elementalPower: {
 			Primordial: 0,
@@ -75,6 +75,11 @@ export class Board extends EventTarget implements BoardInterface {
 		}
 
 		this.emit('phaseChange', this.currentPhase);
+	}
+
+	drawCard() {
+		this.hand.push(this.deck.pop());
+		this.advancePhase();
 	}
 
 	/**
