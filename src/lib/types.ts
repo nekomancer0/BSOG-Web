@@ -31,7 +31,7 @@ export abstract class BaseThing<C extends Category | 'Land'> extends EventTarget
 	abstract name: string;
 	abstract image: string;
 	abstract id: string | number;
-
+	abstract cost: C extends 'Hero' | 'Land' ? undefined : { type: Type; amount: number }[];
 	dispatchEvent(event: Event): boolean {
 		this.emit('any', event);
 		return super.dispatchEvent(event);
@@ -189,6 +189,7 @@ export namespace Options {
 		image: string;
 		type: 'Spell';
 		element: T;
+		cost: AbilityCost;
 	}
 
 	export interface Hero<T extends Type> {
@@ -220,6 +221,7 @@ export namespace Options {
 			range: number;
 			movement: number;
 		};
+		cost: AbilityCost;
 	}
 
 	export interface Artifact<T extends Type> {
@@ -229,6 +231,7 @@ export namespace Options {
 		type: 'Artifact';
 		element: T;
 		effect: Effect;
+		cost: AbilityCost;
 	}
 
 	export interface Land<T extends Type> {
@@ -249,6 +252,7 @@ export class Spell<T extends Type> extends BaseThing<'Spell'> {
 	name: string;
 	stats: undefined;
 	type: 'Spell' = 'Spell';
+	cost: { type: Type; amount: number }[];
 
 	constructor(options: Options.Spell<T>) {
 		super();
@@ -259,6 +263,7 @@ export class Spell<T extends Type> extends BaseThing<'Spell'> {
 		this.name = options.name;
 		this.type = options.type;
 		this.effect = options.effect;
+		this.cost = options.cost;
 	}
 }
 
@@ -278,6 +283,7 @@ export class Companion<T extends Type> extends Unit<'Companion'> {
 	type: 'Companion' = 'Companion';
 
 	pos?: { x: number; y: number } | undefined;
+	cost: { type: Type; amount: number }[];
 
 	constructor(options: Options.Companion<T>) {
 		super();
@@ -288,6 +294,7 @@ export class Companion<T extends Type> extends Unit<'Companion'> {
 		this.name = options.name;
 		this.type = options.type;
 		this.stats = options.stats;
+		this.cost = options.cost;
 	}
 }
 
@@ -299,6 +306,7 @@ export class Artifact<T extends Type> extends BaseThing<'Artifact'> {
 	stats: undefined;
 	type: 'Artifact' = 'Artifact';
 	effect: (...args: any[]) => any | void;
+	cost: { type: Type; amount: number }[];
 
 	constructor(options: Options.Artifact<T>) {
 		super();
@@ -309,6 +317,7 @@ export class Artifact<T extends Type> extends BaseThing<'Artifact'> {
 		this.name = options.name;
 		this.type = options.type;
 		this.effect = options.effect;
+		this.cost = options.cost;
 	}
 }
 
@@ -325,6 +334,7 @@ export class Hero<T extends Type> extends Unit<'Hero'> {
 		movement: number;
 		dodge: number;
 	};
+	cost: undefined;
 
 	type: 'Hero' = 'Hero';
 
@@ -349,6 +359,7 @@ export class Land<T extends Type> extends BaseThing<'Land'> {
 	name: string;
 	stats: undefined;
 	type: 'Land' = 'Land';
+	cost: undefined;
 
 	position: { x: number; y: number } | null = null;
 

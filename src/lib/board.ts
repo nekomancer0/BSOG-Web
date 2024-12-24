@@ -9,6 +9,8 @@ type BoardEvents = {
 	turnEnd: () => void;
 	resourceUpdate: (type: Type, amount: number) => void;
 	phaseChange: (phase: 'Draw' | 'Main' | 'Combat' | 'End') => void;
+	drawCard: () => void;
+	turnStart: () => void;
 };
 
 /**
@@ -68,13 +70,21 @@ export class Board extends EventTarget implements BoardInterface {
 	advancePhase() {
 		const phases: ('Draw' | 'Main' | 'Combat' | 'End')[] = ['Draw', 'Main', 'Combat', 'End'];
 		const currentIndex = phases.indexOf(this.currentPhase);
-		this.currentPhase = phases[(currentIndex + 1) % phases.length];
 
-		if (this.currentPhase === 'Draw') {
-			this.drawCard();
-		}
+		// Move to next phase, or back to Draw if we're at the end
+		const nextIndex = (currentIndex + 1) % phases.length;
+		this.currentPhase = phases[nextIndex];
 
+		// Emit the phase change event
 		this.emit('phaseChange', this.currentPhase);
+
+		// Handle phase-specific logic
+		if (this.currentPhase === 'Draw') {
+			// Start of new turn
+			this.emit('turnStart');
+			// Draw a card at the start of Draw phase
+			this.emit('drawCard');
+		}
 	}
 
 	drawCard() {

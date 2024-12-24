@@ -3,6 +3,7 @@
 	import { Board } from '$lib/board';
 	import * as Cards from '$lib/cards';
 	import { generateDeckForRyuu } from '$lib/decks';
+	import { BaseThing, type AbilityCost, type Type } from '$lib/types';
 	import { onMount } from 'svelte';
 	import { writable } from 'svelte/store';
 
@@ -10,6 +11,13 @@
 	const hand = writable<any[]>([]);
 	const previewImage = writable<string | null>(null);
 	const selectedCard = writable<any>(null);
+	const myResources = writable<AbilityCost>([]);
+
+	$: {
+		if ($board) {
+			myResources.set([{ amount: 5, type: getDeckResources()[0].type }]);
+		}
+	}
 
 	onMount(async () => {
 		const newBoard = new Board();
@@ -19,6 +27,14 @@
 
 		const deck = await generateDeckForRyuu();
 		hand.set(deck.slice(0, 5));
+
+		$board?.on('phaseChange', (phase: string) => {
+			console.log('Phase changed:', phase);
+		});
+
+		setInterval(() => {
+			board.set($board);
+		}, 1000);
 	});
 
 	$: {
@@ -39,6 +55,20 @@
 		hand.update((h) => h.filter((c) => c !== card));
 	}
 
+	// Function to get unique resources from the deck
+	function getDeckResources() {
+		const resources: AbilityCost = [];
+		$hand.forEach((card: BaseThing<any>) => {
+			if (card.cost && !resources.includes(card.cost[0])) {
+				card.cost.forEach((resource) => {
+					resources.push(resource);
+				});
+			}
+		});
+
+		return Array.from(resources);
+	}
+
 	function handlePhaseEnd() {
 		$board?.advancePhase();
 	}
@@ -53,18 +83,29 @@
 </script>
 
 <div class="game-container">
-	<div class="game-info">
-		<div class="phase">Current Phase: {$board?.currentPhase}</div>
+	<!-- Sticky game info panel -->
+	<div class="game-info-panel">
+		<div class="phase">
+			Current Phase: {$board?.currentPhase}
+		</div>
+
 		<div class="resources">
-			{#each Object.entries($board?.resources.elementalPower ?? {}) as [element, amount]}
+			{#each $myResources as { amount, type }}
 				<div class="resource">
-					<img src="/img/elements/{element}.png" alt={element} />
+					<img src="/img/elements/{type}.png" alt={type} />
 					<span>{amount}</span>
 				</div>
 			{/each}
 		</div>
+
+		<div class="controls">
+			<button onclick={handlePhaseEnd}>
+				End {$board?.currentPhase} Phase
+			</button>
+		</div>
 	</div>
 
+	<!-- Keep the preview overlay -->
 	{#if $previewImage}
 		<div class="preview-overlay">
 			<img src={$previewImage} alt="Card Preview" class="preview-image" />
@@ -99,6 +140,23 @@
 		{/if}
 	</div>
 
+	<!-- Hand should be separate from the info panel -->
+	<div class="hand">
+		{#each $hand as card}
+			<!-- svelte-ignore a11y_click_events_have_key_events -->
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div
+				class="card"
+				class:selected={$selectedCard === card}
+				onclick={() => selectedCard.set(card)}
+				onmouseenter={() => handlePreview(card.image)}
+				onmouseleave={clearPreview}
+			>
+				<img src={'img' + card.image} alt={card.name} />
+			</div>
+		{/each}
+	</div>
+
 	<div class="player-area">
 		<button onclick={handlePhaseEnd}>
 			End {$board?.currentPhase} Phase
@@ -123,37 +181,86 @@
 </div>
 
 <style>
-	.game-container {
-		display: grid;
-		grid-template-rows: auto 1fr auto;
-		height: 100vh;
-		gap: 1rem;
+	:global(.game-info-panel) {
+		position: fixed;
+		top: 20px;
+		right: 20px;
+		background: rgba(42, 42, 42, 0.95);
 		padding: 1rem;
+		border-radius: 8px;
+		z-index: 100;
+		box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+		max-width: 300px;
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
 	}
 
-	.game-info {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		padding: 1rem;
-		background: #2a2a2a;
-		border-radius: 8px;
+	:global(.phase) {
+		color: white;
+		font-size: 1.1rem;
+		padding-bottom: 0.5rem;
+		border-bottom: 1px solid rgba(255, 255, 255, 0.2);
 	}
 
 	:global(.resources) {
 		display: flex;
-		gap: 1rem;
+		flex-wrap: wrap;
+		gap: 0.8rem;
 	}
 
 	:global(.resource) {
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
+		background: rgba(255, 255, 255, 0.1);
+		padding: 0.4rem;
+		border-radius: 6px;
 	}
 
 	:global(.resource img) {
-		width: 50px;
-		height: 50px;
+		width: 30px;
+		height: 30px;
+	}
+
+	:global(.controls) {
+		margin-top: auto;
+	}
+
+	:global(.controls button) {
+		width: 100%;
+		padding: 0.8rem;
+		background: #4a5568;
+		color: white;
+		border: none;
+		border-radius: 6px;
+		cursor: pointer;
+		transition: background 0.2s;
+	}
+
+	:global(.controls button:hover) {
+		background: #2d3748;
+	}
+
+	/* Keep your existing hand styles */
+	.hand {
+		display: flex;
+		gap: 0.5rem;
+		padding: 1rem;
+		justify-content: center;
+		align-items: center;
+		position: fixed;
+		bottom: 0;
+		left: 50%;
+		transform: translateX(-50%);
+	}
+
+	.game-container {
+		display: grid;
+		grid-template-rows: auto 1fr auto;
+		height: 100vh;
+		gap: 1rem;
+		padding: 1rem;
 	}
 
 	.board {
@@ -169,18 +276,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 20px;
-	}
-
-	.hand {
-		display: flex;
-		gap: 0.5rem; /* reduced gap between cards */
-		padding: 1rem;
-		justify-content: center;
-		align-items: center;
-		position: fixed;
-		bottom: 0;
-		left: 50%;
-		transform: translateX(-50%);
 	}
 
 	:global(.card) {

@@ -12,7 +12,8 @@ export const Relief = new Spell({
 		target.updateStats({
 			currentHp: target.stats.currentHp + 2
 		});
-	}
+	},
+	cost: [{ amount: 2, type: 'Primordial' }]
 });
 
 export const Ryuu = new Hero({
