@@ -9,6 +9,7 @@
 	const board = writable<Board | null>(null);
 	const hand = writable<any[]>([]);
 	const previewImage = writable<string | null>(null);
+	const selectedCard = writable<any>(null);
 
 	onMount(async () => {
 		const newBoard = new Board();
@@ -20,9 +21,26 @@
 		hand.set(deck.slice(0, 5));
 	});
 
+	$: {
+		if ($previewImage) {
+			console.log('Preview image updated:', $previewImage);
+		}
+	}
+
 	function playCard(card: any, position: { x: number; y: number }) {
-		$board?.playLand(card, position);
+		if (!$board) return;
+
+		if (card.type === 'Land') {
+			$board.playLand(card, position);
+		} else if (card.type === 'Hero' || card.type === 'Companion') {
+			$board.spawnUnit(card);
+		}
+
 		hand.update((h) => h.filter((c) => c !== card));
+	}
+
+	function handlePhaseEnd() {
+		$board?.advancePhase();
 	}
 
 	function endTurn() {
@@ -39,6 +57,18 @@
 </script>
 
 <div class="game-container">
+	<div class="game-info">
+		<div class="phase">Current Phase: {$board?.currentPhase}</div>
+		<div class="resources">
+			{#each Object.entries($board?.resources.elementalPower ?? {}) as [element, amount]}
+				<div class="resource">
+					<img src="/img/elements/{element}.png" alt={element} />
+					<span>{amount}</span>
+				</div>
+			{/each}
+		</div>
+	</div>
+
 	{#if $previewImage}
 		<div class="preview-overlay">
 			<img src={$previewImage} alt="Card Preview" class="preview-image" />
@@ -74,14 +104,18 @@
 	</div>
 
 	<div class="player-area">
-		<button onclick={endTurn}>End Turn</button>
+		<button onclick={handlePhaseEnd}>
+			End {$board?.currentPhase} Phase
+		</button>
+
 		<div class="hand">
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			{#each $hand as card}
 				<!-- svelte-ignore a11y_click_events_have_key_events -->
 				<div
 					class="card"
-					onclick={() => playCard(card, { x: 0, y: 0 })}
+					class:selected={$selectedCard === card}
+					onclick={() => selectedCard.set(card)}
 					onmouseenter={() => handlePreview(card.image)}
 					onmouseleave={clearPreview}
 				>
@@ -95,11 +129,30 @@
 <style>
 	.game-container {
 		display: grid;
-		grid-template-columns: 1fr 300px;
+		grid-template-rows: auto 1fr auto;
 		height: 100vh;
-		padding: 20px;
-		gap: 20px;
-		position: relative;
+		gap: 1rem;
+		padding: 1rem;
+	}
+
+	.game-info {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 1rem;
+		background: #2a2a2a;
+		border-radius: 8px;
+	}
+
+	.resources {
+		display: flex;
+		gap: 1rem;
+	}
+
+	.resource {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
 	}
 
 	.board {
@@ -119,37 +172,38 @@
 
 	.hand {
 		display: flex;
-		flex-direction: column;
-		gap: 10px;
-	}
-
-	:global(.preview-overlay) {
+		gap: 0.5rem; /* reduced gap between cards */
+		padding: 1rem;
+		justify-content: center;
+		align-items: center;
 		position: fixed;
-		top: 50%;
+		bottom: 0;
 		left: 50%;
-		transform: translate(-50%, -50%);
-		z-index: 1000;
-		pointer-events: none;
-	}
-
-	:global(.preview-image) {
-		max-height: 80vh;
-		max-width: 80vw;
-		object-fit: contain;
-		border-radius: 10px;
-		box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+		transform: translateX(-50%);
 	}
 
 	:global(.card) {
-		background: #3a3a3a;
-		padding: 10px;
-		border-radius: 8px;
-		cursor: pointer;
+		width: 120px; /* reduced from default size */
+		height: 168px; /* maintaining 1.4:1 aspect ratio */
 		transition: transform 0.2s ease;
+		cursor: pointer;
 	}
 
-	.card:hover {
-		transform: scale(1.05);
+	:global(.card:hover) {
+		transform: translateY(-10px) scale(1.1);
+		z-index: 10;
+	}
+
+	:global(.card img) {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		border-radius: 8px;
+	}
+
+	:global(.card.selected) {
+		border: 2px solid #ffd700;
+		transform: translateY(-10px);
 	}
 
 	:global(.tile) {
@@ -165,8 +219,28 @@
 		transform: scale(1.05);
 	}
 
-	/* Optional: Add animation for the preview */
-	.preview-overlay {
+	:global(.preview-overlay) {
+		position: fixed;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		z-index: 1000;
+		pointer-events: none;
+		background: rgba(0, 0, 0, 0.8);
+		padding: 20px;
+		border-radius: 10px;
+	}
+
+	:global(.preview-image) {
+		max-height: 80vh;
+		max-width: 80vw;
+		object-fit: contain;
+		border-radius: 10px;
+		box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+	}
+
+	/* Add animation for smoother appearance */
+	:global(.preview-overlay) {
 		animation: fadeIn 0.2s ease;
 	}
 

@@ -1,4 +1,4 @@
-import type { BoardInterface, LandEntry, Unit } from './types';
+import type { BoardInterface, LandEntry, Type, Unit } from './types';
 import * as Lands from './lands';
 import * as Cards from './cards';
 
@@ -7,6 +7,8 @@ type BoardEvents = {
 	unitSpawn: (unit: Unit) => void;
 	unitDelete: (unit: Unit) => void;
 	turnEnd: () => void;
+	resourceUpdate: (type: Type, amount: number) => void;
+	phaseChange: (phase: 'Draw' | 'Main' | 'Combat' | 'End') => void;
 };
 
 /**
@@ -17,10 +19,62 @@ export class Board extends EventTarget implements BoardInterface {
 	lands: LandEntry[] = [];
 	currentTurn: number = 0;
 
+	currentPhase: 'Draw' | 'Main' | 'Combat' | 'End' = 'Draw';
+
+	resources = {
+		elementalPower: {
+			Primordial: 0,
+			Erudite: 0,
+			Sylvester: 0,
+			Shadows: 0,
+			Neutral: 0
+		}
+	};
+
 	constructor() {
 		super();
 		this.initializeLands();
 		this.setupEventListeners();
+	}
+
+	/**
+	 * Registers an event listener for board events.
+	 * @param event - The name of the event.
+	 * @param listener - The event listener function.
+	 */
+	on(event: keyof BoardEvents, listener: BoardEvents[keyof BoardEvents]): void {
+		this.addEventListener(event, (e: Event) => {
+			const customEvent = e as CustomEvent<any[]>;
+
+			// @ts-ignore
+			listener(...customEvent.detail);
+		});
+	}
+
+	/**
+	 * Emits a board event.
+	 * @param event - The name of the event.
+	 * @param args - The event arguments.
+	 */
+	emit(event: keyof BoardEvents, ...args: Parameters<BoardEvents[keyof BoardEvents]>): void {
+		this.dispatchEvent(new CustomEvent(event, { detail: args }));
+	}
+
+	gainResources(type: keyof typeof this.resources.elementalPower, amount: number) {
+		this.resources.elementalPower[type] += amount;
+		this.emit('resourceUpdate', type, this.resources.elementalPower[type]);
+	}
+
+	advancePhase() {
+		const phases: ('Draw' | 'Main' | 'Combat' | 'End')[] = ['Draw', 'Main', 'Combat', 'End'];
+		const currentIndex = phases.indexOf(this.currentPhase);
+		this.currentPhase = phases[(currentIndex + 1) % phases.length];
+
+		if (this.currentPhase === 'Draw') {
+			this.drawCard();
+		}
+
+		this.emit('phaseChange', this.currentPhase);
 	}
 
 	/**
@@ -136,7 +190,7 @@ export class Board extends EventTarget implements BoardInterface {
 	 * Sets up event listeners for board events.
 	 */
 	private setupEventListeners(): void {
-		this.on('unitMove', (unit, position) => {
+		this.on('unitMove', (unit: any, position: { x: number; y: number }) => {
 			this.lands.forEach((entry) => {
 				if (entry.pos.x === position.x && entry.pos.y === position.y) {
 					entry.land.emit('unitOn', unit);
@@ -186,28 +240,5 @@ export class Board extends EventTarget implements BoardInterface {
 		};
 
 		previewDiv.addEventListener('click', clearPreview);
-	}
-
-	/**
-	 * Registers an event listener for board events.
-	 * @param event - The name of the event.
-	 * @param listener - The event listener function.
-	 */
-	on(event: keyof BoardEvents, listener: BoardEvents[keyof BoardEvents]): void {
-		this.addEventListener(event, (e: Event) => {
-			const customEvent = e as CustomEvent<any[]>;
-
-			// @ts-ignore
-			listener(...customEvent.detail);
-		});
-	}
-
-	/**
-	 * Emits a board event.
-	 * @param event - The name of the event.
-	 * @param args - The event arguments.
-	 */
-	emit(event: keyof BoardEvents, ...args: Parameters<BoardEvents[keyof BoardEvents]>): void {
-		this.dispatchEvent(new CustomEvent(event, { detail: args }));
 	}
 }
