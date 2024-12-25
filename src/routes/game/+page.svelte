@@ -11,6 +11,7 @@
 	let previewImage: string | null = $state(null);
 	let selectedCard: any = $state(null);
 	let myResources: AbilityCost = $state([]);
+	let phase: 'Draw' | 'Main' | 'Combat' | 'End' = $state('Draw');
 
 	let selectedUnit: Unit | null = $state(null);
 	let validMoves: Array<{ x: number; y: number }> = $state([]);
@@ -75,23 +76,25 @@
 
 	let isProcessing = false;
 
+	const ryuu = Cards.Ryuu;
+
+	ryuu.pos = { x: 3, y: 3 };
+
+	board?.placeUnit(ryuu, { x: 3, y: 3 });
+
 	onMount(async () => {
-		const ryuu = Cards.Ryuu;
-
-		ryuu.pos = { x: 3, y: 3 };
-
-		board?.placeUnit(ryuu, { x: 3, y: 3 });
-
 		const deck = await generateDeckForRyuu();
 		hand = [...deck.slice(0, 4), Cards.DummyCompanion];
+	});
 
-		setInterval(() => {
-			hand = hand.filter((c) => typeof c !== 'undefined');
-		}, 0);
+	setInterval(() => {
+		hand = hand.filter((c) => typeof c !== 'undefined');
+	}, 0);
 
-		board?.on('phaseChange', (phase: string) => {
-			console.log('Phase changed:', phase);
-		});
+	board?.on('phaseChange', (phasex: any) => {
+		console.log('Phase changed:', phasex);
+
+		phase = phasex;
 	});
 
 	// Function to get unique resources from the deck
@@ -113,7 +116,7 @@
 	}
 
 	function handlePreview(imageUrl: string) {
-		previewImage = 'img' + imageUrl;
+		previewImage = imageUrl;
 	}
 
 	function clearPreview() {
@@ -153,13 +156,13 @@
 	<!-- Sticky game info panel -->
 	<div class="game-info-panel">
 		<div class="phase">
-			Current Phase: {board?.currentPhase}
+			Current Phase: {phase}
 		</div>
 
 		<div class="resources">
 			{#each myResources as { amount, type }}
 				<div class="resource">
-					<img src="/img/elements/{type}.png" alt={type} />
+					<img src="/elements/{type}.png" alt={type} />
 					<span>{amount}</span>
 				</div>
 			{/each}
@@ -195,7 +198,7 @@
 							<!-- Land -->
 							<img
 								class="land"
-								src={`/img/lands/${board?.lands.find((l) => l.pos.x === x && l.pos.y === y)?.land.id}.png`}
+								src={`/lands/${board?.lands.find((l) => l.pos.x === x && l.pos.y === y)?.land.id}.png`}
 								alt="Land"
 							/>
 
@@ -206,8 +209,11 @@
 									class:selected={selectedUnit === unit}
 									onclick={() => handleUnitClick(unit!)}
 								>
-									<!-- To this -->
-									<img src={'img' + unit?.image} alt={unit?.name} />
+									<img src={unit?.image} alt={unit?.name} />
+									<!-- Debug info -->
+									<div class="debug-info">
+										{unit?.name} ({x},{y})
+									</div>
 								</div>
 							{/if}
 						</div>
@@ -229,7 +235,7 @@
 					onmouseenter={() => handlePreview(card.image)}
 					onmouseleave={clearPreview}
 				>
-					<img src={'img' + card.image} alt={card.name} />
+					<img src={card.image} alt={card.name} />
 				</div>
 			{/each}
 		</div>
@@ -430,5 +436,16 @@
 
 	.valid-attack {
 		background: rgba(255, 0, 0, 0.2);
+	}
+
+	:global(.debug-info) {
+		position: absolute;
+		top: 0;
+		left: 0;
+		z-index: 10000;
+		background: rgba(0, 0, 0, 0.5);
+		color: white;
+		font-size: 0.8em;
+		text-align: center;
 	}
 </style>

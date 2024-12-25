@@ -278,47 +278,4 @@ export class Board extends EventTarget implements BoardInterface {
 			});
 		});
 	}
-
-	/**
-	 * Updates the hero card display when a hero unit is spawned.
-	 * @param unit - The hero unit to display.
-	 */
-	private updateHeroCard(unit: Unit<'Hero'>): void {
-		const heroCardEl = document.querySelector<HTMLImageElement>('.hero-card');
-		if (!heroCardEl) return;
-
-		const img = new Image();
-		img.src = unit.image;
-
-		img.onload = () => {
-			heroCardEl.width = img.width / 3;
-			heroCardEl.height = img.height / 3;
-			heroCardEl.src = img.src;
-
-			heroCardEl.addEventListener('click', () => {
-				this.showPreview(unit.image);
-			});
-		};
-	}
-
-	/**
-	 * Displays a preview of the given image.
-	 * @param imageSrc - The source URL of the image to preview.
-	 */
-	private showPreview(imageSrc: string): void {
-		const previewDiv = document.querySelector<HTMLDivElement>('.preview');
-		if (!previewDiv) return;
-
-		const img = document.createElement('img');
-		img.src = imageSrc;
-		previewDiv.innerHTML = '';
-		previewDiv.appendChild(img);
-
-		const clearPreview = () => {
-			previewDiv.innerHTML = '';
-			previewDiv.removeEventListener('click', clearPreview);
-		};
-
-		previewDiv.addEventListener('click', clearPreview);
-	}
 }
