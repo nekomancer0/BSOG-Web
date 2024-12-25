@@ -32,14 +32,14 @@ export abstract class BaseThing<C extends Category | 'Land'> extends EventTarget
 	abstract image: string;
 	abstract id: string | number;
 	abstract cost: C extends 'Hero' | 'Land' ? undefined : { type: Type; amount: number }[];
-	dispatchEvent(event: Event): boolean {
-		this.emit('any', event);
-		return super.dispatchEvent(event);
-	}
 
 	once(event: string, callback: (...args: any[]) => void): void {
 		// @ts-ignore
 		this.addEventListener(event, callback, { once: true });
+	}
+
+	isHero(): this is Unit<'Hero'> {
+		return this.type === 'Hero';
 	}
 
 	abilityBuilder: <P extends boolean = false>(options: AbilityEntry<P>) => AbilityEntry = (
@@ -76,18 +76,9 @@ export abstract class BaseThing<C extends Category | 'Land'> extends EventTarget
 		this.addEventListener(event, callback);
 	}
 
-	isHero(): this is Unit<'Hero'> {
-		return this.type === 'Hero';
-	}
-
 	emit(event: string, ...args: any[]): void {
 		// @ts-ignore
 		this.dispatchEvent(new CustomEvent(event, { detail: args }));
-	}
-
-	off(event: string, callback: (...args: any[]) => void): void {
-		// @ts-ignore
-		this.removeEventListener(event, callback);
 	}
 
 	onAny(callback: (eventName: string, ...args: any[]) => void): void {
@@ -368,7 +359,7 @@ export class Land<T extends Type> extends BaseThing<'Land'> {
 	on(event: 'unitEnter', callback: (unit: Unit<'Companion' | 'Hero'>) => void): void;
 	on(event: 'unitExit', callback: (unit: Unit<'Companion' | 'Hero'>) => void): void;
 	on(event: string, callback: (...args: any[]) => void): void {
-		super.on(event, callback);
+		super.addEventListener(event, callback);
 	}
 
 	constructor(options: Options.Land<T>) {

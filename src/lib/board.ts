@@ -39,26 +39,13 @@ export class Board extends EventTarget implements BoardInterface {
 		this.setupEventListeners();
 	}
 
-	/**
-	 * Registers an event listener for board events.
-	 * @param event - The name of the event.
-	 * @param listener - The event listener function.
-	 */
-	on(event: keyof BoardEvents, listener: BoardEvents[keyof BoardEvents]): void {
-		this.addEventListener(event, (e: Event) => {
-			const customEvent = e as CustomEvent<any[]>;
-
-			// @ts-ignore
-			listener(...customEvent.detail);
-		});
+	on(event: string, callback: (...args: any[]) => void): void {
+		// @ts-ignore
+		this.addEventListener(event, callback);
 	}
 
-	/**
-	 * Emits a board event.
-	 * @param event - The name of the event.
-	 * @param args - The event arguments.
-	 */
-	emit(event: keyof BoardEvents, ...args: Parameters<BoardEvents[keyof BoardEvents]>): void {
+	emit(event: string, ...args: any[]): void {
+		// @ts-ignore
 		this.dispatchEvent(new CustomEvent(event, { detail: args }));
 	}
 
@@ -161,19 +148,23 @@ export class Board extends EventTarget implements BoardInterface {
 	}
 
 	// Move unit to new position
+	// Modify the moveUnit method to prevent recursive calls
 	moveUnit(unit: Unit, newPos: { x: number; y: number }): boolean {
 		if (!this.canMoveTo(unit, newPos)) return false;
 
 		const oldPos = unit.pos;
 		unit.pos = { ...newPos };
 
-		// Trigger events
+		// Emit move event only once
 		this.emit('unitMove', unit, newPos);
 
-		// Handle land effects
+		// Get the land at the new position
 		const landEntry = this.lands.find((l) => l.pos.x === newPos.x && l.pos.y === newPos.y);
 		if (landEntry) {
-			landEntry.land.emit('unitEnter', unit);
+			// Use a setTimeout to break the potential call stack
+			setTimeout(() => {
+				landEntry.land.emit('unitEnter', unit);
+			}, 0);
 		}
 
 		return true;
@@ -185,12 +176,17 @@ export class Board extends EventTarget implements BoardInterface {
 
 		unit.pos = { ...position };
 		this.units.push(unit);
+
+		// Emit spawn event only once
 		this.emit('unitSpawn', unit);
 
-		// Handle land effects
+		// Handle land effects with setTimeout
 		const landEntry = this.lands.find((l) => l.pos.x === position.x && l.pos.y === position.y);
 		if (landEntry) {
-			landEntry.land.emit('unitEnter', unit);
+			setTimeout(() => {
+				console.log(unit);
+				landEntry.land.emit('unitEnter', unit);
+			}, 0);
 		}
 
 		return true;

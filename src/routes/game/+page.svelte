@@ -13,11 +13,46 @@
 	const selectedCard = writable<any>(null);
 	const myResources = writable<AbilityCost>([]);
 
+	let selectedUnit: Unit | null = null;
+	let validMoves: Array<{ x: number; y: number }> = [];
+	let validAttacks: Array<{ x: number; y: number }> = [];
+
 	$effect(() => {
 		if ($board) {
 			myResources.set([{ amount: 5, type: getDeckResources()[0].type }]);
 		}
 	});
+
+	function handleTileClick(x: number, y: number) {
+		if (!$board) return;
+
+		// Add a guard to prevent multiple rapid clicks
+		if (isProcessing) return;
+		isProcessing = true;
+
+		try {
+			if ($selectedCard && ($selectedCard.type === 'Hero' || $selectedCard.type === 'Companion')) {
+				console.log($selectedCard);
+				if ($board.placeUnit($selectedCard, { x, y })) {
+					selectedCard.set(null);
+					hand.update((h) => h.filter((c) => c !== $selectedCard));
+				}
+			} else if (selectedUnit) {
+				if ($board.moveUnit(selectedUnit, { x, y })) {
+					selectedUnit = null;
+					validMoves = [];
+					validAttacks = [];
+				}
+			}
+		} finally {
+			// Reset processing flag after a short delay
+			setTimeout(() => {
+				isProcessing = false;
+			}, 100);
+		}
+	}
+
+	let isProcessing = false;
 
 	onMount(async () => {
 		const newBoard = new Board();
@@ -84,29 +119,6 @@
 
 	function clearPreview() {
 		previewImage.set(null);
-	}
-
-	let selectedUnit: Unit | null = null;
-	let validMoves: Array<{ x: number; y: number }> = [];
-	let validAttacks: Array<{ x: number; y: number }> = [];
-
-	function handleTileClick(x: number, y: number) {
-		if (!$board) return;
-
-		if ($selectedCard && ($selectedCard.type === 'Hero' || $selectedCard.type === 'Companion')) {
-			// Place new unit
-			if ($board.placeUnit($selectedCard, { x, y })) {
-				selectedCard.set(null);
-				hand.update((h) => h.filter((c) => c !== $selectedCard));
-			}
-		} else if (selectedUnit) {
-			// Move selected unit
-			if ($board.moveUnit(selectedUnit, { x, y })) {
-				selectedUnit = null;
-				validMoves = [];
-				validAttacks = [];
-			}
-		}
 	}
 
 	function handleUnitClick(unit: Unit) {

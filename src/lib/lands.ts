@@ -5,6 +5,7 @@ export const Steppes = new Land({
 	effect: ({ units }: { units: Unit[] }) => {
 		units.forEach((unit) => {
 			if (unit.pos?.x === Steppes.position?.x && unit.pos?.y === Steppes.position?.y) {
+				console.log(unit);
 				if (unit.isHero()) {
 					let oldDodge = unit.stats.dodge;
 					unit.stats.dodge = 0;
