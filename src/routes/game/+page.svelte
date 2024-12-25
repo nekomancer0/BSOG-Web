@@ -5,47 +5,68 @@
 	import { generateDeckForRyuu } from '$lib/decks';
 	import { BaseThing, Unit, type AbilityCost, type Type } from '$lib/types';
 	import { onMount } from 'svelte';
-	import { writable } from 'svelte/store';
 
-	const board = writable<Board | null>(null);
-	const hand = writable<any[]>([]);
-	const previewImage = writable<string | null>(null);
-	const selectedCard = writable<any>(null);
-	const myResources = writable<AbilityCost>([]);
+	let board: Board | null = $state(new Board());
+	let hand: any[] = $state([]);
+	let previewImage: string | null = $state(null);
+	let selectedCard: any = $state(null);
+	let myResources: AbilityCost = $state([]);
 
-	let selectedUnit: Unit | null = null;
-	let validMoves: Array<{ x: number; y: number }> = [];
-	let validAttacks: Array<{ x: number; y: number }> = [];
+	let selectedUnit: Unit | null = $state(null);
+	let validMoves: Array<{ x: number; y: number }> = $state([]);
+	let validAttacks: Array<{ x: number; y: number }> = $state([]);
 
+	let i = 0;
 	$effect(() => {
-		if ($board) {
-			myResources.set([{ amount: 5, type: getDeckResources()[0].type }]);
+		i++;
+
+		if (board && i === 2) {
+			i = 0;
+
+			console.log('Current board state:', {
+				units: board.units,
+				lands: board.lands
+			});
+
+			myResources = [{ amount: 5, type: getDeckResources()[0].type }];
+		}
+
+		if (previewImage) {
+			console.log('Preview image updated:', previewImage);
 		}
 	});
 
 	function handleTileClick(x: number, y: number) {
-		if (!$board) return;
+		if (!board) return;
 
-		// Add a guard to prevent multiple rapid clicks
 		if (isProcessing) return;
 		isProcessing = true;
 
 		try {
-			if ($selectedCard && ($selectedCard.type === 'Hero' || $selectedCard.type === 'Companion')) {
-				console.log($selectedCard);
-				if ($board.placeUnit($selectedCard, { x, y })) {
-					selectedCard.set(null);
-					hand.update((h) => h.filter((c) => c !== $selectedCard));
+			if (selectedCard && (selectedCard.type === 'Hero' || selectedCard.type === 'Companion')) {
+				// Create a pawn version of the card
+				const pawnUnit = {
+					...selectedCard,
+					stats: {
+						...selectedCard.stats,
+						// You might want to modify stats for pawns
+						movement: Math.min(selectedCard.stats.movement, 2), // Limit movement
+						attack: Math.floor(selectedCard.stats.attack * 0.75) // Reduce attack
+					}
+				};
+
+				if (board?.placeUnit(pawnUnit, { x, y })) {
+					hand = hand.filter((c) => c.name !== selectedCard.name);
+					selectedCard = null;
 				}
 			} else if (selectedUnit) {
-				if ($board.moveUnit(selectedUnit, { x, y })) {
+				if (board?.moveUnit(selectedUnit, { x, y })) {
 					selectedUnit = null;
 					validMoves = [];
 					validAttacks = [];
 				}
 			}
 		} finally {
-			// Reset processing flag after a short delay
 			setTimeout(() => {
 				isProcessing = false;
 			}, 100);
@@ -55,50 +76,28 @@
 	let isProcessing = false;
 
 	onMount(async () => {
-		const newBoard = new Board();
 		const ryuu = Cards.Ryuu;
-		board.set(newBoard);
 
-		$board?.spawnUnit(ryuu);
+		ryuu.pos = { x: 3, y: 3 };
+
+		board?.placeUnit(ryuu, { x: 3, y: 3 });
 
 		const deck = await generateDeckForRyuu();
-		hand.set([...deck.slice(0, 5), Cards.DummyCompanion]);
+		hand = [...deck.slice(0, 4), Cards.DummyCompanion];
 
 		setInterval(() => {
-			hand.set($hand.filter((c) => typeof c !== 'undefined'));
-		}, 1000);
+			hand = hand.filter((c) => typeof c !== 'undefined');
+		}, 0);
 
-		$board?.on('phaseChange', (phase: string) => {
+		board?.on('phaseChange', (phase: string) => {
 			console.log('Phase changed:', phase);
 		});
-
-		setInterval(() => {
-			board.set($board);
-		}, 1000);
 	});
-
-	$effect(() => {
-		if ($previewImage) {
-			console.log('Preview image updated:', $previewImage);
-		}
-	});
-
-	function playCard(card: any, position: { x: number; y: number }) {
-		if (!$board) return;
-
-		if (card.type === 'Land') {
-			$board.playLand(card, position);
-		} else if (card.type === 'Hero' || card.type === 'Companion') {
-			$board.spawnUnit(card);
-		}
-
-		hand.update((h) => h.filter((c) => c !== card));
-	}
 
 	// Function to get unique resources from the deck
 	function getDeckResources() {
 		const resources: AbilityCost = [];
-		$hand.forEach((card: BaseThing<any>) => {
+		hand.forEach((card: BaseThing<any>) => {
 			if (card.cost && card.cost.length > 0 && !resources.includes(card.cost[0])) {
 				card.cost.forEach((resource) => {
 					resources.push(resource);
@@ -106,23 +105,23 @@
 			}
 		});
 
-		return Array.from(resources);
+		return resources;
 	}
 
 	function handlePhaseEnd() {
-		$board?.advancePhase();
+		board?.advancePhase();
 	}
 
 	function handlePreview(imageUrl: string) {
-		previewImage.set('img' + imageUrl);
+		previewImage = 'img' + imageUrl;
 	}
 
 	function clearPreview() {
-		previewImage.set(null);
+		previewImage = null;
 	}
 
 	function handleUnitClick(unit: Unit) {
-		if (!$board) return;
+		if (!board) return;
 
 		if (selectedUnit === unit) {
 			// Deselect unit
@@ -138,10 +137,10 @@
 			// Calculate valid moves and attacks
 			for (let x = 0; x < 8; x++) {
 				for (let y = 0; y < 8; y++) {
-					if ($board.canMoveTo(unit, { x, y })) {
+					if (board.canMoveTo(unit, { x, y })) {
 						validMoves.push({ x, y });
 					}
-					if ($board.canAttack(unit, { x, y })) {
+					if (board.canAttack(unit, { x, y })) {
 						validAttacks.push({ x, y });
 					}
 				}
@@ -154,11 +153,11 @@
 	<!-- Sticky game info panel -->
 	<div class="game-info-panel">
 		<div class="phase">
-			Current Phase: {$board?.currentPhase}
+			Current Phase: {board?.currentPhase}
 		</div>
 
 		<div class="resources">
-			{#each $myResources as { amount, type }}
+			{#each myResources as { amount, type }}
 				<div class="resource">
 					<img src="/img/elements/{type}.png" alt={type} />
 					<span>{amount}</span>
@@ -168,20 +167,20 @@
 
 		<div class="controls">
 			<button onclick={handlePhaseEnd}>
-				End {$board?.currentPhase} Phase
+				End {board?.currentPhase} Phase
 			</button>
 		</div>
 	</div>
 
 	<!-- Keep the preview overlay -->
-	{#if $previewImage}
+	{#if previewImage}
 		<div class="preview-overlay">
-			<img src={$previewImage} alt="Card Preview" class="preview-image" />
+			<img src={previewImage} alt="Card Preview" class="preview-image" />
 		</div>
 	{/if}
 
 	<div class="board">
-		{#if $board}
+		{#if board}
 			{#each Array(8) as _, x}
 				<div class="col col-{x}">
 					{#each Array(8) as _, y}
@@ -196,18 +195,18 @@
 							<!-- Land -->
 							<img
 								class="land"
-								src={`/img/lands/${$board.lands.find((l) => l.pos.x === x && l.pos.y === y)?.land.id}.png`}
+								src={`/img/lands/${board?.lands.find((l) => l.pos.x === x && l.pos.y === y)?.land.id}.png`}
 								alt="Land"
 							/>
 
-							<!-- Unit -->
-							{#if $board.getUnitAt({ x, y })}
-								{@const unit = $board.getUnitAt({ x, y })}
+							{#if board?.getUnitAt({ x, y })}
+								{@const unit = board?.getUnitAt({ x, y })}
 								<div
 									class="unit"
 									class:selected={selectedUnit === unit}
 									onclick={() => handleUnitClick(unit!)}
 								>
+									<!-- To this -->
 									<img src={'img' + unit?.image} alt={unit?.name} />
 								</div>
 							{/if}
@@ -218,36 +217,15 @@
 		{/if}
 	</div>
 
-	<!-- Hand should be separate from the info panel -->
-	<div class="hand">
-		{#each $hand as card}
-			<!-- svelte-ignore a11y_click_events_have_key_events -->
-			<!-- svelte-ignore a11y_no_static_element_interactions -->
-			<div
-				class="card"
-				class:selected={$selectedCard === card}
-				onclick={() => selectedCard.set(card)}
-				onmouseenter={() => handlePreview(card.image)}
-				onmouseleave={clearPreview}
-			>
-				<img src={'img' + card.image} alt={card.name} />
-			</div>
-		{/each}
-	</div>
-
 	<div class="player-area">
-		<button onclick={handlePhaseEnd}>
-			End {$board?.currentPhase} Phase
-		</button>
-
 		<div class="hand">
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
-			{#each $hand as card}
+			{#each hand as card}
 				<!-- svelte-ignore a11y_click_events_have_key_events -->
 				<div
 					class="card"
-					class:selected={$selectedCard === card}
-					onclick={() => selectedCard.set(card)}
+					class:selected={selectedCard === card}
+					onclick={() => (selectedCard = card)}
 					onmouseenter={() => handlePreview(card.image)}
 					onmouseleave={clearPreview}
 				>
@@ -375,18 +353,36 @@
 		border-radius: 8px;
 	}
 
-	:global(.card.selected) {
-		border: 2px solid #ffd700;
-		transform: translateY(-10px);
+	:global(.unit) {
+		position: relative;
+		width: 100%;
+		height: 100%;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		z-index: 2; /* Ensure units appear above the land */
+	}
+
+	:global(.unit img) {
+		width: 80%;
+		height: 80%;
+		object-fit: contain;
+		pointer-events: none;
 	}
 
 	:global(.tile) {
+		position: relative;
 		aspect-ratio: 1;
 		background: #3a3a3a;
 		border-radius: 4px;
 		overflow: hidden;
 		cursor: pointer;
 		transition: transform 0.2s ease;
+	}
+
+	:global(.card.selected) {
+		border: 2px solid #ffd700;
+		transform: translateY(-10px);
 	}
 
 	:global(.tile:hover) {
@@ -434,9 +430,5 @@
 
 	.valid-attack {
 		background: rgba(255, 0, 0, 0.2);
-	}
-
-	.unit.selected {
-		outline: 2px solid yellow;
 	}
 </style>

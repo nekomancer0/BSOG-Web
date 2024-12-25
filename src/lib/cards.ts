@@ -20,7 +20,7 @@ export const Ryuu = new Hero({
 	element: 'Primordial',
 	name: 'Ryuu',
 	id: '0',
-	image: '/cards/ryuu.png',
+	image: '/cards/0.png',
 	stats: {
 		hp: 20,
 		atk: 2,

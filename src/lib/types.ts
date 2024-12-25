@@ -73,12 +73,18 @@ export abstract class BaseThing<C extends Category | 'Land'> extends EventTarget
 
 	on(event: string, callback: (...args: any[]) => void): void {
 		// @ts-ignore
-		this.addEventListener(event, callback);
+		this.addEventListener(event, (e: CustomEvent) => {
+			// Extract the details and pass them directly to the callback
+			callback(...e.detail);
+		});
 	}
 
 	emit(event: string, ...args: any[]): void {
-		// @ts-ignore
-		this.dispatchEvent(new CustomEvent(event, { detail: args }));
+		this.dispatchEvent(
+			new CustomEvent(event, {
+				detail: args
+			})
+		);
 	}
 
 	onAny(callback: (eventName: string, ...args: any[]) => void): void {
@@ -160,11 +166,21 @@ export abstract class Card<C extends Category = Category> extends BaseThing<C> {
 	abstract id: string;
 	abstract type: C;
 	abstract element: Type;
+
 	on(event: string, callback: (...args: any[]) => void): void {
-		this.addEventListener(event, callback);
+		// @ts-ignore
+		this.addEventListener(event, (e: CustomEvent) => {
+			// Extract the details and pass them directly to the callback
+			callback(...e.detail);
+		});
 	}
+
 	emit(event: string, ...args: any[]): void {
-		this.dispatchEvent(new CustomEvent(event, { detail: args }));
+		this.dispatchEvent(
+			new CustomEvent(event, {
+				detail: args
+			})
+		);
 	}
 
 	isHero(): this is Unit<'Hero'> {

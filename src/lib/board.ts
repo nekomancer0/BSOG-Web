@@ -41,12 +41,18 @@ export class Board extends EventTarget implements BoardInterface {
 
 	on(event: string, callback: (...args: any[]) => void): void {
 		// @ts-ignore
-		this.addEventListener(event, callback);
+		this.addEventListener(event, (e: CustomEvent) => {
+			// Extract the details and pass them directly to the callback
+			callback(...e.detail);
+		});
 	}
 
 	emit(event: string, ...args: any[]): void {
-		// @ts-ignore
-		this.dispatchEvent(new CustomEvent(event, { detail: args }));
+		this.dispatchEvent(
+			new CustomEvent(event, {
+				detail: args
+			})
+		);
 	}
 
 	gainResources(type: keyof typeof this.resources.elementalPower, amount: number) {
@@ -77,20 +83,6 @@ export class Board extends EventTarget implements BoardInterface {
 	drawCard() {
 		this.hand.push(this.deck.pop());
 		this.advancePhase();
-	}
-
-	/**
-	 * Adds a new unit to the board and triggers the spawn event.
-	 * @param unit - The unit to spawn on the board.
-	 */
-	spawnUnit(unit: Unit<'Companion' | 'Hero'>): void {
-		this.units.push(unit);
-
-		if (unit.isHero()) {
-			this.updateHeroCard(unit);
-		}
-
-		this.emit('unitSpawn', unit);
 	}
 
 	/**
@@ -172,19 +164,21 @@ export class Board extends EventTarget implements BoardInterface {
 
 	// Place unit on board
 	placeUnit(unit: Unit, position: { x: number; y: number }): boolean {
-		if (!this.isValidPosition(position) || this.getUnitAt(position)) return false;
+		if (!this.isValidPosition(position) || this.getUnitAt(position)) {
+			console.log('Invalid position or position occupied:', position);
+			return false;
+		}
 
 		unit.pos = { ...position };
 		this.units.push(unit);
+		console.log('Unit placed:', unit, 'at position:', position);
+		console.log('Current units on board:', this.units);
 
-		// Emit spawn event only once
 		this.emit('unitSpawn', unit);
 
-		// Handle land effects with setTimeout
 		const landEntry = this.lands.find((l) => l.pos.x === position.x && l.pos.y === position.y);
 		if (landEntry) {
 			setTimeout(() => {
-				console.log(unit);
 				landEntry.land.emit('unitEnter', unit);
 			}, 0);
 		}
@@ -217,7 +211,12 @@ export class Board extends EventTarget implements BoardInterface {
 
 		for (let x = 0; x < 8; x++) {
 			for (let y = 0; y < 8; y++) {
-				const randomLand = landTypes[Math.floor(Math.random() * landTypes.length)];
+				let randomLand = landTypes[Math.floor(Math.random() * landTypes.length)];
+				randomLand.position = {
+					x,
+					y
+				};
+
 				this.lands.push({ pos: { x, y }, land: randomLand });
 			}
 		}
