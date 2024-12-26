@@ -96,7 +96,7 @@ export class Board extends EventTarget implements BoardInterface {
 
 	// Check if a position is within the board boundaries
 	private isValidPosition(pos: { x: number; y: number }): boolean {
-		return pos.x >= 0 && pos.x < 8 && pos.y >= 0 && pos.y < 8;
+		return pos.x + 1 >= 0 && pos.x + 1 <= 8 && pos.y + 1 >= 0 && pos.y + 1 <= 8;
 	}
 
 	// Calculate Manhattan distance between two positions
@@ -109,7 +109,7 @@ export class Board extends EventTarget implements BoardInterface {
 
 	// Get unit at a specific position
 	getUnitAt(pos: { x: number; y: number }): Unit | undefined {
-		return this.units.find((unit) => unit.pos?.x === pos.x && unit.pos?.y === pos.y);
+		return this.units.find((unit) => unit.pos?.x === pos.x + 1 && unit.pos?.y === pos.y + 1);
 	}
 
 	// Check if a unit can move to a position
@@ -209,8 +209,8 @@ export class Board extends EventTarget implements BoardInterface {
 	private initializeLands(): void {
 		const landTypes = [Lands.Steppes]; // Exclusion des Traps et terrains spéciaux
 
-		for (let x = 0; x < 8; x++) {
-			for (let y = 0; y < 8; y++) {
+		for (let x = 1; x <= 8; x++) {
+			for (let y = 1; y <= 8; y++) {
 				let randomLand = landTypes[Math.floor(Math.random() * landTypes.length)];
 				randomLand.position = {
 					x,
@@ -273,7 +273,7 @@ export class Board extends EventTarget implements BoardInterface {
 		this.on('unitMove', (unit: any, position: { x: number; y: number }) => {
 			this.lands.forEach((entry) => {
 				if (entry.pos.x === position.x && entry.pos.y === position.y) {
-					entry.land.emit('unitOn', unit);
+					entry.land.emit('unitEnter', unit);
 				}
 			});
 		});

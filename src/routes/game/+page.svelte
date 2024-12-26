@@ -19,9 +19,11 @@
 
 	let i = 0;
 	$effect(() => {
+		if (!board) return;
+
 		i++;
 
-		if (board && i === 2) {
+		if (i === 2) {
 			i = 0;
 
 			console.log('Current board state:', {
@@ -35,6 +37,12 @@
 		if (previewImage) {
 			console.log('Preview image updated:', previewImage);
 		}
+	});
+
+	$effect(() => {
+		if (!board) return;
+
+		hand = board.hand.filter((c) => typeof c !== 'undefined');
 	});
 
 	function handleTileClick(x: number, y: number) {
@@ -84,12 +92,9 @@
 
 	onMount(async () => {
 		const deck = await generateDeckForRyuu();
-		hand = [...deck.slice(0, 4), Cards.DummyCompanion];
+		hand = [...deck.slice(0, 4), Cards.DummyCompanion].filter((c) => typeof c !== 'undefined');
+		console.log(hand);
 	});
-
-	setInterval(() => {
-		hand = hand.filter((c) => typeof c !== 'undefined');
-	}, 0);
 
 	board?.on('phaseChange', (phasex: any) => {
 		console.log('Phase changed:', phasex);
@@ -138,8 +143,8 @@
 			validAttacks = [];
 
 			// Calculate valid moves and attacks
-			for (let x = 0; x < 8; x++) {
-				for (let y = 0; y < 8; y++) {
+			for (let x = 1; x <= 8; x++) {
+				for (let y = 1; y <= 8; y++) {
 					if (board.canMoveTo(unit, { x, y })) {
 						validMoves.push({ x, y });
 					}
@@ -184,42 +189,46 @@
 
 	<div class="board">
 		{#if board}
-			{#each Array(8) as _, x}
-				<div class="col col-{x}">
-					{#each Array(8) as _, y}
-						<!-- svelte-ignore a11y_click_events_have_key_events -->
-						<!-- svelte-ignore a11y_no_static_element_interactions -->
-						<div
-							class="tile"
-							class:valid-move={validMoves.some((pos) => pos.x === x && pos.y === y)}
-							class:valid-attack={validAttacks.some((pos) => pos.x === x && pos.y === y)}
-							onclick={() => handleTileClick(x, y)}
-						>
-							<!-- Land -->
-							<img
-								class="land"
-								src={`/lands/${board?.lands.find((l) => l.pos.x === x && l.pos.y === y)?.land.id}.png`}
-								alt="Land"
-							/>
+			{#key (board.units, board.lands)}
+				{#each { length: 8 }, x}
+					<div class="col col-{x + 1}">
+						{#each { length: 8 }, y}
+							<!-- svelte-ignore a11y_click_events_have_key_events -->
+							<!-- svelte-ignore a11y_no_static_element_interactions -->
+							<div
+								class="tile row row-{y + 1}"
+								class:valid-move={validMoves.some((pos) => pos.x === x + 1 && pos.y === y + 1)}
+								class:valid-attack={validAttacks.some((pos) => pos.x === x + 1 && pos.y === y + 1)}
+								onclick={() => handleTileClick(x, y)}
+							>
+								<!-- Land -->
+								<img
+									class="land"
+									src={`/lands/${board?.lands.find((l) => l.pos.x === x + 1 && l.pos.y === y + 1)?.land.id}.png`}
+									alt="Land"
+								/>
 
-							{#if board?.getUnitAt({ x, y })}
-								{@const unit = board?.getUnitAt({ x, y })}
-								<div
-									class="unit"
-									class:selected={selectedUnit === unit}
-									onclick={() => handleUnitClick(unit!)}
-								>
-									<img src={unit?.image} alt={unit?.name} />
-									<!-- Debug info -->
-									<div class="debug-info">
-										{unit?.name} ({x},{y})
-									</div>
-								</div>
-							{/if}
-						</div>
-					{/each}
-				</div>
-			{/each}
+								{#key board.units}
+									{#if board?.getUnitAt({ x, y })}
+										{@const unit = board?.getUnitAt({ x, y })}
+										<div
+											class="unit"
+											class:selected={selectedUnit === unit}
+											onclick={() => handleUnitClick(unit!)}
+										>
+											<img src={unit?.image} alt={unit?.name} />
+											<!-- Debug info -->
+											<div class="debug-info">
+												{unit?.name} ({x + 1},{y + 1})
+											</div>
+										</div>
+									{/if}
+								{/key}
+							</div>
+						{/each}
+					</div>
+				{/each}
+			{/key}
 		{/if}
 	</div>
 
@@ -329,7 +338,6 @@
 		display: grid;
 		grid-template-columns: repeat(8, 1fr);
 		gap: 2px;
-		background: #2a2a2a;
 		padding: 10px;
 		border-radius: 8px;
 	}
@@ -360,26 +368,17 @@
 	}
 
 	:global(.unit) {
-		position: relative;
-		width: 100%;
-		height: 100%;
-		display: flex;
-		justify-content: center;
-		align-items: center;
-		z-index: 2; /* Ensure units appear above the land */
-	}
-
-	:global(.unit img) {
-		width: 80%;
-		height: 80%;
-		object-fit: contain;
-		pointer-events: none;
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 50%;
+		height: 50%;
+		z-index: 3; /* Ensure units appear above the land */
 	}
 
 	:global(.tile) {
 		position: relative;
 		aspect-ratio: 1;
-		background: #3a3a3a;
 		border-radius: 4px;
 		overflow: hidden;
 		cursor: pointer;
@@ -447,5 +446,15 @@
 		color: white;
 		font-size: 0.8em;
 		text-align: center;
+	}
+
+	:global(.land) {
+		position: relative;
+		width: 100%;
+		height: 100%;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		z-index: -3;
 	}
 </style>
