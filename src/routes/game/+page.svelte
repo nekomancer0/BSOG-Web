@@ -31,7 +31,9 @@
 				lands: board.lands
 			});
 
-			myResources = [{ amount: 5, type: getDeckResources()[0].type }];
+			myResources = [
+				{ amount: 5, type: getDeckResources().filter((c) => typeof c !== 'undefined')[0].type }
+			];
 		}
 
 		if (previewImage) {
@@ -208,22 +210,20 @@
 									alt="Land"
 								/>
 
-								{#key board.units}
-									{#if board?.getUnitAt({ x, y })}
-										{@const unit = board?.getUnitAt({ x, y })}
-										<div
-											class="unit"
-											class:selected={selectedUnit === unit}
-											onclick={() => handleUnitClick(unit!)}
-										>
-											<img src={unit?.image} alt={unit?.name} />
-											<!-- Debug info -->
-											<div class="debug-info">
-												{unit?.name} ({x + 1},{y + 1})
-											</div>
+								{#if board?.getUnitAt({ x, y })}
+									{@const unit = board?.getUnitAt({ x, y })}
+									<div
+										class="unit"
+										class:selected={selectedUnit === unit}
+										onclick={() => handleUnitClick(unit!)}
+									>
+										<img src={unit?.image} alt={unit?.name} />
+										<!-- Debug info -->
+										<div class="debug-info">
+											{unit?.name} ({x + 1},{y + 1})
 										</div>
-									{/if}
-								{/key}
+									</div>
+								{/if}
 							</div>
 						{/each}
 					</div>
