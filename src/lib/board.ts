@@ -96,7 +96,7 @@ export class Board extends EventTarget implements BoardInterface {
 
 	// Check if a position is within the board boundaries
 	private isValidPosition(pos: { x: number; y: number }): boolean {
-		return pos.x + 1 >= 0 && pos.x + 1 <= 8 && pos.y + 1 >= 0 && pos.y + 1 <= 8;
+		return pos.x >= 0 && pos.x < 8 && pos.y >= 0 && pos.y < 8;
 	}
 
 	// Calculate Manhattan distance between two positions
@@ -116,14 +116,8 @@ export class Board extends EventTarget implements BoardInterface {
 	canMoveTo(unit: Unit, targetPos: { x: number; y: number }): boolean {
 		if (!unit.pos || !this.isValidPosition(targetPos)) return false;
 
-		// Adjust positions for calculation
-		const adjustedTarget = {
-			x: targetPos.x + 1,
-			y: targetPos.y + 1
-		};
-
 		// Calculate distance using adjusted positions
-		const distance = this.calculateDistance(unit.pos, adjustedTarget);
+		const distance = this.calculateDistance(unit.pos, targetPos);
 
 		// Check if movement is within unit's movement range
 		if (distance > unit.stats.movement) return false;
@@ -151,24 +145,17 @@ export class Board extends EventTarget implements BoardInterface {
 	moveUnit(unit: Unit, newPos: { x: number; y: number }): boolean {
 		if (!this.canMoveTo(unit, newPos)) return false;
 
-		const adjustedPos = {
-			x: newPos.x + 1,
-			y: newPos.y + 1
-		};
-
 		// Store old position for animation purposes
-		const oldPos = { ...unit.pos };
+		const oldPos = unit.pos;
 
 		// Update unit position
-		unit.pos = adjustedPos;
+		unit.pos = newPos;
 
 		// Emit move event
-		this.emit('unitMove', unit, adjustedPos);
+		this.emit('unitMove', unit, newPos);
 
 		// Handle land effects
-		const landEntry = this.lands.find(
-			(l) => l.pos.x === adjustedPos.x && l.pos.y === adjustedPos.y
-		);
+		const landEntry = this.lands.find((l) => l.pos.x === newPos.x && l.pos.y === newPos.y);
 
 		if (landEntry) {
 			setTimeout(() => {
@@ -186,7 +173,7 @@ export class Board extends EventTarget implements BoardInterface {
 			return false;
 		}
 
-		unit.pos = { ...position };
+		unit.pos = position;
 		this.units.push(unit);
 		console.log('Unit placed:', unit, 'at position:', position);
 		console.log('Current units on board:', this.units);
@@ -226,8 +213,8 @@ export class Board extends EventTarget implements BoardInterface {
 	private initializeLands(): void {
 		const landTypes = [Lands.Steppes]; // Exclusion des Traps et terrains spéciaux
 
-		for (let x = 1; x <= 8; x++) {
-			for (let y = 1; y <= 8; y++) {
+		for (let x = 0; x < 8; x++) {
+			for (let y = 0; y < 8; y++) {
 				let randomLand = landTypes[Math.floor(Math.random() * landTypes.length)];
 				randomLand.position = {
 					x,

@@ -17,6 +17,19 @@
 	let validMoves: Array<{ x: number; y: number }> = $state([]);
 	let validAttacks: Array<{ x: number; y: number }> = $state([]);
 
+	onMount(async () => {
+		// Initialize board if not already done
+
+		// Place Ryuu on the board
+		const ryuu = Cards.Ryuu;
+		ryuu.pos = { x: 2, y: 2 };
+		board?.placeUnit(ryuu, { x: 2, y: 2 });
+
+		// Get deck and hand
+		const deck = await generateDeckForRyuu();
+		hand = [...deck.slice(0, 4), Cards.DummyCompanion].filter((c) => typeof c !== 'undefined');
+	});
+
 	let i = 0;
 	$effect(() => {
 		if (!board) return;
@@ -56,23 +69,19 @@
 		try {
 			if (selectedCard && (selectedCard.type === 'Hero' || selectedCard.type === 'Companion')) {
 				// Handle unit placement
-				const pawnUnit = {
-					...selectedCard,
-					stats: {
-						...selectedCard.stats,
-						movement: Math.min(selectedCard.stats.movement, 2),
-						attack: Math.floor(selectedCard.stats.attack * 0.75)
-					}
-				};
-
-				if (board.placeUnit(pawnUnit, { x, y })) {
+				const success = board.placeUnit(selectedCard, { x, y });
+				if (success) {
 					hand = hand.filter((c) => c.name !== selectedCard.name);
 					selectedCard = null;
 				}
 			} else if (selectedUnit) {
 				// Handle unit movement
-				if (validMoves.some((pos) => pos.x === x + 1 && pos.y === y + 1)) {
-					if (board.moveUnit(selectedUnit, { x, y })) {
+				const targetPos = { x, y };
+				if (validMoves.some((pos) => pos.x === x && pos.y === y)) {
+					const success = board.moveUnit(selectedUnit, targetPos);
+					if (success) {
+						// Force a UI update by creating a new reference
+						board = board;
 						// Clear selection after successful move
 						selectedUnit = null;
 						validMoves = [];
@@ -88,24 +97,6 @@
 	}
 
 	let isProcessing = false;
-
-	const ryuu = Cards.Ryuu;
-
-	ryuu.pos = { x: 3, y: 3 };
-
-	board?.placeUnit(ryuu, { x: 3, y: 3 });
-
-	onMount(async () => {
-		const deck = await generateDeckForRyuu();
-		hand = [...deck.slice(0, 4), Cards.DummyCompanion].filter((c) => typeof c !== 'undefined');
-		console.log(hand);
-	});
-
-	board?.on('phaseChange', (phasex: any) => {
-		console.log('Phase changed:', phasex);
-
-		phase = phasex;
-	});
 
 	// Function to get unique resources from the deck
 	function getDeckResources() {
@@ -136,28 +127,37 @@
 	function handleUnitClick(unit: Unit) {
 		if (!board) return;
 
-		if (selectedUnit === unit) {
-			// Deselect unit
-			selectedUnit = null;
-			validMoves = [];
-			validAttacks = [];
-		} else {
-			// Select unit and calculate valid moves/attacks
-			selectedUnit = unit;
-			validMoves = [];
-			validAttacks = [];
+		// Prevent processing during animations
+		if (isProcessing) return;
+		isProcessing = true;
 
-			// Calculate valid moves and attacks
-			for (let x = 0; x < 8; x++) {
-				for (let y = 0; y < 8; y++) {
-					if (board.canMoveTo(unit, { x, y })) {
-						validMoves.push({ x: x + 1, y: y + 1 });
-					}
-					if (board.canAttack(unit, { x, y })) {
-						validAttacks.push({ x: x + 1, y: y + 1 });
+		try {
+			if (selectedUnit === unit) {
+				selectedUnit = null;
+				validMoves = [];
+				validAttacks = [];
+			} else {
+				selectedUnit = unit;
+				validMoves = [];
+				validAttacks = [];
+
+				// Calculate valid moves
+				for (let x = 0; x < 8; x++) {
+					for (let y = 0; y < 8; y++) {
+						if (board.canMoveTo(unit, { x, y })) {
+							validMoves.push({ x: x, y: y });
+						}
+						if (board.canAttack(unit, { x, y })) {
+							validAttacks.push({ x: x, y: y });
+						}
 					}
 				}
 			}
+		} finally {
+			// Ensure processing flag is reset
+			setTimeout(() => {
+				isProcessing = false;
+			}, 100);
 		}
 	}
 </script>
@@ -194,45 +194,40 @@
 
 	<div class="board">
 		{#if board}
-			{#key board.units}
-				{#each { length: 8 }, x}
-					<div class="col col-{x + 1}">
-						{#each { length: 8 }, y}
-							<!-- svelte-ignore a11y_click_events_have_key_events -->
-							<!-- svelte-ignore a11y_no_static_element_interactions -->
-							<div
-								class="tile row row-{y + 1}"
-								class:valid-move={validMoves.some((pos) => pos.x === x + 1 && pos.y === y + 1)}
-								class:valid-attack={validAttacks.some((pos) => pos.x === x + 1 && pos.y === y + 1)}
-								onclick={() => handleTileClick(x, y)}
-							>
-								<!-- Land -->
-								<img
-									class="land"
-									src={`/lands/${board?.lands.find((l) => l.pos.x === x + 1 && l.pos.y === y + 1)?.land.id}.png`}
-									alt="Land"
-								/>
+			{#each { length: 8 }, x}
+				<div class="col col-{x}">
+					{#each { length: 8 }, y}
+						<!-- svelte-ignore a11y_click_events_have_key_events -->
+						<!-- svelte-ignore a11y_no_static_element_interactions -->
+						<div
+							class="tile row row-{y}"
+							class:valid-move={validMoves.some((pos) => pos.x === x && pos.y === y)}
+							class:valid-attack={validAttacks.some((pos) => pos.x === x && pos.y === y)}
+							onclick={() => handleTileClick(x, y)}
+						>
+							<!-- Land -->
+							<img
+								class="land"
+								src={`/lands/${board?.lands.find((l) => l.pos.x === x && l.pos.y === y)?.land.id}.png`}
+								alt="Land"
+							/>
 
-								<!-- Unit -->
-								{#if board?.getUnitAt({ x, y })}
-									{@const unit = board?.getUnitAt({ x, y })}
-									<div
-										class="unit"
-										class:selected={selectedUnit === unit}
-										onclick={() => handleUnitClick(unit!)}
-									>
-										<img src={unit?.image} alt={unit?.name} />
-										<div class="unit-info">
-											<span class="unit-name">{unit?.name}</span>
-											<span class="unit-stats">HP: {unit?.stats.currentHp}/{unit?.stats.hp}</span>
-										</div>
-									</div>
-								{/if}
-							</div>
-						{/each}
-					</div>
-				{/each}
-			{/key}
+							<!-- Unit -->
+							{#if board?.getUnitAt({ x: x, y: y })}
+								{@const unit = board?.getUnitAt({ x: x, y: y })}
+
+								<div
+									class="unit"
+									class:selected={selectedUnit === unit}
+									onclick={() => handleUnitClick(unit!)}
+								>
+									<img src={unit?.image} alt={unit?.name} />
+								</div>
+							{/if}
+						</div>
+					{/each}
+				</div>
+			{/each}
 		{/if}
 	</div>
 
@@ -429,6 +424,18 @@
 		justify-content: center;
 		align-items: center;
 		z-index: -3;
+	}
+
+	:global(.valid-move) {
+		background: rgba(0, 255, 0, 0.3) !important;
+		box-shadow: inset 0 0 15px rgba(0, 255, 0, 0.5);
+		z-index: 2;
+	}
+
+	:global(.valid-attack) {
+		background: rgba(255, 0, 0, 0.3) !important;
+		box-shadow: inset 0 0 15px rgba(255, 0, 0, 0.5);
+		z-index: 2;
 	}
 
 	:global(.valid-move) {
