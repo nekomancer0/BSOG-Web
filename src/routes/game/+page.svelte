@@ -18,15 +18,10 @@
 	let validAttacks: Array<{ x: number; y: number }> = $state([]);
 
 	onMount(async () => {
-		// Initialize board if not already done
-		if (!board) {
-			board = new Board();
-		}
-
 		// Place Ryuu on the board
 		const ryuu = Cards.Ryuu;
 		ryuu.pos = { x: 3, y: 3 };
-		board.placeUnit(ryuu, { x: 3, y: 3 });
+		board?.placeUnit(ryuu, { x: 3, y: 3 });
 
 		// Get deck and hand
 		const deck = await generateDeckForRyuu();
@@ -117,8 +112,17 @@
 	}
 
 	function handlePhaseEnd() {
-		board?.advancePhase();
+		if (!board) return;
+
+		board.advancePhase();
+		phase = board.currentPhase;
 	}
+
+	// Add an effect to sync phase with board
+	$effect(() => {
+		if (!board) return;
+		phase = board.currentPhase;
+	});
 
 	function handlePreview(imageUrl: string) {
 		previewImage = imageUrl;
@@ -183,8 +187,8 @@
 		</div>
 
 		<div class="controls">
-			<button onclick={handlePhaseEnd}>
-				End {board?.currentPhase} Phase
+			<button class="phase-button" onclick={handlePhaseEnd} disabled={!board}>
+				End {phase} Phase
 			</button>
 		</div>
 	</div>
@@ -255,6 +259,26 @@
 </div>
 
 <style>
+	:global(.phase-button) {
+		width: 100%;
+		padding: 0.8rem;
+		background: #4a5568;
+		color: white;
+		border: none;
+		border-radius: 6px;
+		cursor: pointer;
+		transition: background 0.2s;
+	}
+
+	:global(.phase-button:hover:not(:disabled)) {
+		background: #2d3748;
+	}
+
+	:global(.phase-button:disabled) {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
 	:global(.game-info-panel) {
 		position: fixed;
 		top: 20px;

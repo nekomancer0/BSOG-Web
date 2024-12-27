@@ -60,23 +60,43 @@ export class Board extends EventTarget implements BoardInterface {
 		this.emit('resourceUpdate', type, this.resources.elementalPower[type]);
 	}
 
-	advancePhase() {
+	advancePhase(): void {
 		const phases: ('Draw' | 'Main' | 'Combat' | 'End')[] = ['Draw', 'Main', 'Combat', 'End'];
 		const currentIndex = phases.indexOf(this.currentPhase);
 
 		// Move to next phase, or back to Draw if we're at the end
-		const nextIndex = (currentIndex + 1) % phases.length;
-		this.currentPhase = phases[nextIndex];
+		this.currentPhase = phases[(currentIndex + 1) % phases.length];
+
+		// If we're back to Draw, it's a new turn
+		if (this.currentPhase === 'Draw') {
+			this.currentTurn++;
+			this.emit('turnStart');
+			// Draw a card
+			this.emit('drawCard');
+		}
 
 		// Emit the phase change event
 		this.emit('phaseChange', this.currentPhase);
 
 		// Handle phase-specific logic
-		if (this.currentPhase === 'Draw') {
-			// Start of new turn
-			this.emit('turnStart');
-			// Draw a card at the start of Draw phase
-			this.emit('drawCard');
+		switch (this.currentPhase) {
+			case 'Draw':
+				// Already handled above
+				break;
+			case 'Main':
+				// Reset movement/action flags for units
+				this.units.forEach((unit) => {
+					// unit.hasMoved = false;
+					// unit.hasActed = false;
+				});
+				break;
+			case 'Combat':
+				// Prepare units for combat
+				break;
+			case 'End':
+				// Clean up phase
+				this.emit('turnEnd');
+				break;
 		}
 	}
 
