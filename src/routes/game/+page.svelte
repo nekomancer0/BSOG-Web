@@ -19,15 +19,19 @@
 
 	onMount(async () => {
 		// Initialize board if not already done
+		if (!board) {
+			board = new Board();
+		}
 
 		// Place Ryuu on the board
 		const ryuu = Cards.Ryuu;
-		ryuu.pos = { x: 2, y: 2 };
-		board?.placeUnit(ryuu, { x: 2, y: 2 });
+		ryuu.pos = { x: 3, y: 3 };
+		board.placeUnit(ryuu, { x: 3, y: 3 });
 
 		// Get deck and hand
 		const deck = await generateDeckForRyuu();
 		hand = [...deck.slice(0, 4), Cards.DummyCompanion].filter((c) => typeof c !== 'undefined');
+		console.log(hand);
 	});
 
 	let i = 0;
