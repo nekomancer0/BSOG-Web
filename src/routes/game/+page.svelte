@@ -64,27 +64,42 @@
 
 		// Update units position on board
 
-		setInterval(() => {
-			board?.on('unitMove', (unit: Unit, newPos, oldPos) => {
-				const unitDiv = getPhysicalUnitByPos(oldPos!);
-				unitDiv?.remove();
+		board?.on('unitMove', (unit: Unit, newPos, oldPos) => {
+			const unitDiv = getPhysicalUnitByPos(oldPos!);
+			unitDiv?.remove();
 
-				const newUnitDiv = document.createElement('div');
-				newUnitDiv.classList.add('unit');
-				newUnitDiv.onclick = (e) => {
-					e.stopPropagation();
-					handleUnitClick(unit);
-					if (selectedUnit === unit) newUnitDiv.classList.remove('selected');
-					else newUnitDiv.classList.add('selected');
-				};
-				newUnitDiv.innerHTML = `<img src=${unit.image} alt=${unit.name} />`;
+			const newUnitDiv = document.createElement('div');
+			newUnitDiv.classList.add('unit');
+			newUnitDiv.onclick = (e) => {
+				e.stopPropagation();
+				handleUnitClick(unit);
+				if (selectedUnit === unit) newUnitDiv.classList.remove('selected');
+				else newUnitDiv.classList.add('selected');
+			};
+			newUnitDiv.innerHTML = `<img src=${unit.image} alt=${unit.name} />`;
 
-				let landDiv = document.querySelector(`.col-${newPos.x} .row-${newPos.y}`);
-				landDiv?.appendChild(newUnitDiv);
+			let landDiv = document.querySelector(`.col-${newPos.x} .row-${newPos.y}`);
+			landDiv?.appendChild(newUnitDiv);
 
-				physicalUnits.push(newUnitDiv);
-			});
-		}, 1000);
+			physicalUnits.push(newUnitDiv);
+		});
+
+		board.on('unitSpawn', (unit: Unit) => {
+			const unitDiv = document.createElement('div');
+			unitDiv.classList.add('unit');
+			unitDiv.onclick = (e) => {
+				e.stopPropagation();
+				handleUnitClick(unit);
+				if (selectedUnit === unit) unitDiv.classList.remove('selected');
+				else unitDiv.classList.add('selected');
+			};
+			unitDiv.innerHTML = `<img src=${unit.image} alt=${unit.name} />`;
+
+			let landDiv = document.querySelector(`.col-${unit.pos?.x} .row-${unit.pos?.y}`);
+			landDiv?.appendChild(unitDiv);
+
+			physicalUnits.push(unitDiv);
+		});
 	});
 
 	let i = 0;

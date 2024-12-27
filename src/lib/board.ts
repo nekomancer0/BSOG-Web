@@ -156,6 +156,9 @@ export class Board extends EventTarget implements BoardInterface {
 		// Calculate distance
 		const distance = this.calculateDistance(unit.pos, targetPos);
 
+		const occupyingUnit = this.getUnitAt(targetPos);
+		if (!occupyingUnit) return false;
+
 		// Check if target is within attack range
 		return distance <= unit.stats.range;
 	}
