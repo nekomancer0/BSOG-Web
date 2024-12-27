@@ -116,14 +116,21 @@ export class Board extends EventTarget implements BoardInterface {
 	canMoveTo(unit: Unit, targetPos: { x: number; y: number }): boolean {
 		if (!unit.pos || !this.isValidPosition(targetPos)) return false;
 
-		// Calculate distance
-		const distance = this.calculateDistance(unit.pos, targetPos);
+		// Adjust positions for calculation
+		const adjustedTarget = {
+			x: targetPos.x + 1,
+			y: targetPos.y + 1
+		};
+
+		// Calculate distance using adjusted positions
+		const distance = this.calculateDistance(unit.pos, adjustedTarget);
 
 		// Check if movement is within unit's movement range
 		if (distance > unit.stats.movement) return false;
 
 		// Check if target position is occupied
-		if (this.getUnitAt(targetPos)) return false;
+		const occupyingUnit = this.getUnitAt(targetPos);
+		if (occupyingUnit) return false;
 
 		return true;
 	}
@@ -144,16 +151,26 @@ export class Board extends EventTarget implements BoardInterface {
 	moveUnit(unit: Unit, newPos: { x: number; y: number }): boolean {
 		if (!this.canMoveTo(unit, newPos)) return false;
 
-		const oldPos = unit.pos;
-		unit.pos = { ...newPos };
+		const adjustedPos = {
+			x: newPos.x + 1,
+			y: newPos.y + 1
+		};
 
-		// Emit move event only once
-		this.emit('unitMove', unit, newPos);
+		// Store old position for animation purposes
+		const oldPos = { ...unit.pos };
 
-		// Get the land at the new position
-		const landEntry = this.lands.find((l) => l.pos.x === newPos.x && l.pos.y === newPos.y);
+		// Update unit position
+		unit.pos = adjustedPos;
+
+		// Emit move event
+		this.emit('unitMove', unit, adjustedPos);
+
+		// Handle land effects
+		const landEntry = this.lands.find(
+			(l) => l.pos.x === adjustedPos.x && l.pos.y === adjustedPos.y
+		);
+
 		if (landEntry) {
-			// Use a setTimeout to break the potential call stack
 			setTimeout(() => {
 				landEntry.land.emit('unitEnter', unit);
 			}, 0);

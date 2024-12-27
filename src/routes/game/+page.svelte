@@ -49,32 +49,35 @@
 
 	function handleTileClick(x: number, y: number) {
 		if (!board) return;
-
 		if (isProcessing) return;
+
 		isProcessing = true;
 
 		try {
 			if (selectedCard && (selectedCard.type === 'Hero' || selectedCard.type === 'Companion')) {
-				// Create a pawn version of the card
+				// Handle unit placement
 				const pawnUnit = {
 					...selectedCard,
 					stats: {
 						...selectedCard.stats,
-						// You might want to modify stats for pawns
-						movement: Math.min(selectedCard.stats.movement, 2), // Limit movement
-						attack: Math.floor(selectedCard.stats.attack * 0.75) // Reduce attack
+						movement: Math.min(selectedCard.stats.movement, 2),
+						attack: Math.floor(selectedCard.stats.attack * 0.75)
 					}
 				};
 
-				if (board?.placeUnit(pawnUnit, { x, y })) {
+				if (board.placeUnit(pawnUnit, { x, y })) {
 					hand = hand.filter((c) => c.name !== selectedCard.name);
 					selectedCard = null;
 				}
 			} else if (selectedUnit) {
-				if (board?.moveUnit(selectedUnit, { x, y })) {
-					selectedUnit = null;
-					validMoves = [];
-					validAttacks = [];
+				// Handle unit movement
+				if (validMoves.some((pos) => pos.x === x + 1 && pos.y === y + 1)) {
+					if (board.moveUnit(selectedUnit, { x, y })) {
+						// Clear selection after successful move
+						selectedUnit = null;
+						validMoves = [];
+						validAttacks = [];
+					}
 				}
 			}
 		} finally {
@@ -145,13 +148,13 @@
 			validAttacks = [];
 
 			// Calculate valid moves and attacks
-			for (let x = 1; x <= 8; x++) {
-				for (let y = 1; y <= 8; y++) {
+			for (let x = 0; x < 8; x++) {
+				for (let y = 0; y < 8; y++) {
 					if (board.canMoveTo(unit, { x, y })) {
-						validMoves.push({ x, y });
+						validMoves.push({ x: x + 1, y: y + 1 });
 					}
 					if (board.canAttack(unit, { x, y })) {
-						validAttacks.push({ x, y });
+						validAttacks.push({ x: x + 1, y: y + 1 });
 					}
 				}
 			}
@@ -191,7 +194,7 @@
 
 	<div class="board">
 		{#if board}
-			{#key (board.units, board.lands)}
+			{#key board.units}
 				{#each { length: 8 }, x}
 					<div class="col col-{x + 1}">
 						{#each { length: 8 }, y}
@@ -210,6 +213,7 @@
 									alt="Land"
 								/>
 
+								<!-- Unit -->
 								{#if board?.getUnitAt({ x, y })}
 									{@const unit = board?.getUnitAt({ x, y })}
 									<div
@@ -218,9 +222,9 @@
 										onclick={() => handleUnitClick(unit!)}
 									>
 										<img src={unit?.image} alt={unit?.name} />
-										<!-- Debug info -->
-										<div class="debug-info">
-											{unit?.name} ({x + 1},{y + 1})
+										<div class="unit-info">
+											<span class="unit-name">{unit?.name}</span>
+											<span class="unit-stats">HP: {unit?.stats.currentHp}/{unit?.stats.hp}</span>
 										</div>
 									</div>
 								{/if}
@@ -367,31 +371,9 @@
 		border-radius: 8px;
 	}
 
-	:global(.unit) {
-		position: absolute;
-		top: 0;
-		left: 0;
-		width: 50%;
-		height: 50%;
-		z-index: 3; /* Ensure units appear above the land */
-	}
-
-	:global(.tile) {
-		position: relative;
-		aspect-ratio: 1;
-		border-radius: 4px;
-		overflow: hidden;
-		cursor: pointer;
-		transition: transform 0.2s ease;
-	}
-
 	:global(.card.selected) {
 		border: 2px solid #ffd700;
 		transform: translateY(-10px);
-	}
-
-	:global(.tile:hover) {
-		transform: scale(1.05);
 	}
 
 	:global(.preview-overlay) {
@@ -428,15 +410,6 @@
 		}
 	}
 
-	/* Add to existing styles */
-	.valid-move {
-		background: rgba(0, 255, 0, 0.2);
-	}
-
-	.valid-attack {
-		background: rgba(255, 0, 0, 0.2);
-	}
-
 	:global(.debug-info) {
 		position: absolute;
 		top: 0;
@@ -456,5 +429,47 @@
 		justify-content: center;
 		align-items: center;
 		z-index: -3;
+	}
+
+	:global(.valid-move) {
+		background: rgba(0, 255, 0, 0.3) !important;
+		box-shadow: inset 0 0 15px rgba(0, 255, 0, 0.5);
+		z-index: 2;
+	}
+
+	:global(.valid-attack) {
+		background: rgba(255, 0, 0, 0.3) !important;
+		box-shadow: inset 0 0 15px rgba(255, 0, 0, 0.5);
+		z-index: 2;
+	}
+
+	:global(.tile) {
+		position: relative;
+		aspect-ratio: 1;
+		border-radius: 4px;
+		overflow: hidden;
+		cursor: pointer;
+		transition: all 0.2s ease;
+	}
+
+	:global(.tile:hover) {
+		transform: scale(1.05);
+		z-index: 3;
+	}
+
+	:global(.unit) {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		width: 80%;
+		height: 80%;
+		transition: all 0.3s ease;
+		z-index: 3;
+	}
+
+	:global(.unit.selected) {
+		box-shadow: 0 0 15px rgba(255, 215, 0, 0.8);
+		transform: translate(-50%, -50%) scale(1.1);
 	}
 </style>
