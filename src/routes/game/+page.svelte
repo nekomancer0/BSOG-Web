@@ -6,7 +6,7 @@
 	import { BaseThing, Unit, type AbilityCost, type Type } from '$lib/types';
 	import { onMount } from 'svelte';
 
-	let board: Board | null = $state(new Board());
+	let board: Board | null = $state(null);
 	let hand: any[] = $state([]);
 	let previewImage: string | null = $state(null);
 	let selectedCard: any = $state(null);
@@ -18,15 +18,17 @@
 	let validAttacks: Array<{ x: number; y: number }> = $state([]);
 
 	onMount(async () => {
-		// Place Ryuu on the board
+		// Initialize board
+		board = new Board();
+
+		// Place Ryuu on the board with zero-based coordinates
 		const ryuu = Cards.Ryuu;
-		ryuu.pos = { x: 3, y: 3 };
-		board?.placeUnit(ryuu, { x: 3, y: 3 });
+		ryuu.pos = { x: 2, y: 2 }; // Was { x: 3, y: 3 }
+		board.placeUnit(ryuu, { x: 2, y: 2 }); // Was { x: 3, y: 3 }
 
 		// Get deck and hand
 		const deck = await generateDeckForRyuu();
 		hand = [...deck.slice(0, 4), Cards.DummyCompanion].filter((c) => typeof c !== 'undefined');
-		console.log(hand);
 	});
 
 	let i = 0;
@@ -221,13 +223,15 @@
 							/>
 
 							<!-- Unit -->
-							{#if board?.getUnitAt({ x: x, y: y })}
-								{@const unit = board?.getUnitAt({ x: x, y: y })}
-
+							{#if board?.getUnitAt({ x, y })}
+								{@const unit = board.getUnitAt({ x, y })}
 								<div
 									class="unit"
 									class:selected={selectedUnit === unit}
-									onclick={() => handleUnitClick(unit!)}
+									onclick={(e) => {
+										e.stopPropagation();
+										handleUnitClick(unit!);
+									}}
 								>
 									<img src={unit?.image} alt={unit?.name} />
 								</div>

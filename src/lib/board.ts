@@ -129,7 +129,7 @@ export class Board extends EventTarget implements BoardInterface {
 
 	// Get unit at a specific position
 	getUnitAt(pos: { x: number; y: number }): Unit | undefined {
-		return this.units.find((unit) => unit.pos?.x === pos.x + 1 && unit.pos?.y === pos.y + 1);
+		return this.units.find((unit) => unit.pos?.x === pos.x && unit.pos?.y === pos.y);
 	}
 
 	// Check if a unit can move to a position
