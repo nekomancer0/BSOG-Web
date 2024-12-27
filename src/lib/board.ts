@@ -165,21 +165,26 @@ export class Board extends EventTarget implements BoardInterface {
 	moveUnit(unit: Unit, newPos: { x: number; y: number }): boolean {
 		if (!this.canMoveTo(unit, newPos)) return false;
 
-		// Store old position for animation purposes
+		// Store old position for land exit effects
 		const oldPos = unit.pos;
 
 		// Update unit position
 		unit.pos = newPos;
 
 		// Emit move event
-		this.emit('unitMove', unit, newPos);
+		this.emit('unitMove', unit, newPos, oldPos);
 
-		// Handle land effects
-		const landEntry = this.lands.find((l) => l.pos.x === newPos.x && l.pos.y === newPos.y);
+		// Handle old land exit effects if needed
+		const oldLandEntry = this.lands.find((l) => l.pos.x === oldPos?.x && l.pos.y === oldPos?.y);
+		if (oldLandEntry) {
+			oldLandEntry.land.emit('unitExit', unit);
+		}
 
-		if (landEntry) {
+		// Handle new land entry effects
+		const newLandEntry = this.lands.find((l) => l.pos.x === newPos.x && l.pos.y === newPos.y);
+		if (newLandEntry) {
 			setTimeout(() => {
-				landEntry.land.emit('unitEnter', unit);
+				newLandEntry.land.emit('unitEnter', unit);
 			}, 0);
 		}
 

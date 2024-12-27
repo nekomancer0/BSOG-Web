@@ -12,12 +12,21 @@
 	let selectedCard: any = $state(null);
 	let myResources: AbilityCost = $state([]);
 	let phase: 'Draw' | 'Main' | 'Combat' | 'End' = $state('Draw');
+	let physicalUnits: HTMLDivElement[] = $state([]);
 
 	let selectedUnit: Unit | null = $state(null);
 	let validMoves: Array<{ x: number; y: number }> = $state([]);
 	let validAttacks: Array<{ x: number; y: number }> = $state([]);
 
 	onMount(async () => {
+		function getLandDivByPos(pos: { x: number; y: number }) {
+			return document.querySelector<HTMLDivElement>(`.col-${pos.x} .row-${pos.y}`);
+		}
+
+		function getPhysicalUnitByPos(pos: { x: number; y: number }) {
+			return document.querySelector<HTMLDivElement>(`.col-${pos.x} .row-${pos.y} .unit`);
+		}
+
 		// Initialize board
 		board = new Board();
 
@@ -29,6 +38,53 @@
 		// Get deck and hand
 		const deck = await generateDeckForRyuu();
 		hand = [...deck.slice(0, 4), Cards.DummyCompanion].filter((c) => typeof c !== 'undefined');
+
+		// Put first units on the DOM
+
+		if (board.units) {
+			board.lands.forEach((land) => {
+				if (board?.getUnitAt(land.pos)) {
+					let unit = board?.getUnitAt(land.pos)!;
+					const unitDiv = document.createElement('div');
+					unitDiv.classList.add('unit');
+					unitDiv.onclick = (e) => {
+						e.stopPropagation();
+						handleUnitClick(unit);
+						if (selectedUnit === unit) unitDiv.classList.remove('selected');
+						else unitDiv.classList.add('selected');
+					};
+					unitDiv.innerHTML = `<img src=${unit.image} alt=${unit.name} />`;
+
+					let landDiv = document.querySelector(`.col-${land.pos.x} .row-${land.pos.y}`);
+					landDiv?.appendChild(unitDiv);
+					physicalUnits.push(unitDiv);
+				}
+			});
+		}
+
+		// Update units position on board
+
+		setInterval(() => {
+			board?.on('unitMove', (unit: Unit, newPos, oldPos) => {
+				const unitDiv = getPhysicalUnitByPos(oldPos!);
+				unitDiv?.remove();
+
+				const newUnitDiv = document.createElement('div');
+				newUnitDiv.classList.add('unit');
+				newUnitDiv.onclick = (e) => {
+					e.stopPropagation();
+					handleUnitClick(unit);
+					if (selectedUnit === unit) newUnitDiv.classList.remove('selected');
+					else newUnitDiv.classList.add('selected');
+				};
+				newUnitDiv.innerHTML = `<img src=${unit.image} alt=${unit.name} />`;
+
+				let landDiv = document.querySelector(`.col-${newPos.x} .row-${newPos.y}`);
+				landDiv?.appendChild(newUnitDiv);
+
+				physicalUnits.push(newUnitDiv);
+			});
+		}, 1000);
 	});
 
 	let i = 0;
@@ -82,7 +138,7 @@
 					const success = board.moveUnit(selectedUnit, targetPos);
 					if (success) {
 						// Force a UI update by creating a new reference
-						board = board;
+
 						// Clear selection after successful move
 						selectedUnit = null;
 						validMoves = [];
@@ -136,8 +192,6 @@
 
 	function handleUnitClick(unit: Unit) {
 		if (!board) return;
-
-		// Prevent processing during animations
 		if (isProcessing) return;
 		isProcessing = true;
 
@@ -151,20 +205,20 @@
 				validMoves = [];
 				validAttacks = [];
 
-				// Calculate valid moves
+				// Calculate valid moves using the same coordinate system
 				for (let x = 0; x < 8; x++) {
 					for (let y = 0; y < 8; y++) {
-						if (board.canMoveTo(unit, { x, y })) {
-							validMoves.push({ x: x, y: y });
+						const pos = { x, y };
+						if (board.canMoveTo(unit, pos)) {
+							validMoves.push(pos);
 						}
-						if (board.canAttack(unit, { x, y })) {
-							validAttacks.push({ x: x, y: y });
+						if (board.canAttack(unit, pos)) {
+							validAttacks.push(pos);
 						}
 					}
 				}
 			}
 		} finally {
-			// Ensure processing flag is reset
 			setTimeout(() => {
 				isProcessing = false;
 			}, 100);
@@ -221,21 +275,6 @@
 								src={`/lands/${board?.lands.find((l) => l.pos.x === x && l.pos.y === y)?.land.id}.png`}
 								alt="Land"
 							/>
-
-							<!-- Unit -->
-							{#if board?.getUnitAt({ x, y })}
-								{@const unit = board.getUnitAt({ x, y })}
-								<div
-									class="unit"
-									class:selected={selectedUnit === unit}
-									onclick={(e) => {
-										e.stopPropagation();
-										handleUnitClick(unit!);
-									}}
-								>
-									<img src={unit?.image} alt={unit?.name} />
-								</div>
-							{/if}
 						</div>
 					{/each}
 				</div>
@@ -459,27 +498,11 @@
 	}
 
 	:global(.valid-move) {
-		background: rgba(0, 255, 0, 0.3) !important;
-		box-shadow: inset 0 0 15px rgba(0, 255, 0, 0.5);
-		z-index: 2;
+		box-shadow: inset 0 0 10px rgba(255, 215, 0, 0.8);
 	}
 
 	:global(.valid-attack) {
-		background: rgba(255, 0, 0, 0.3) !important;
-		box-shadow: inset 0 0 15px rgba(255, 0, 0, 0.5);
-		z-index: 2;
-	}
-
-	:global(.valid-move) {
-		background: rgba(0, 255, 0, 0.3) !important;
-		box-shadow: inset 0 0 15px rgba(0, 255, 0, 0.5);
-		z-index: 2;
-	}
-
-	:global(.valid-attack) {
-		background: rgba(255, 0, 0, 0.3) !important;
-		box-shadow: inset 0 0 15px rgba(255, 0, 0, 0.5);
-		z-index: 2;
+		box-shadow: inset 0 0 10px rgba(255, 0, 0, 0.8);
 	}
 
 	:global(.tile) {
