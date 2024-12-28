@@ -42,6 +42,22 @@ export abstract class BaseThing<C extends Category | 'Land'> extends EventTarget
 		return this.type === 'Hero';
 	}
 
+	isCompanion(): this is Unit<'Companion'> {
+		return this.type === 'Companion';
+	}
+
+	isArtifact(): this is Artifact<any> {
+		return this.type === 'Artifact';
+	}
+
+	isLand(): this is Land<any> {
+		return this.type === 'Land';
+	}
+
+	isSpell(): this is Spell<any> {
+		return this.type === 'Spell';
+	}
+
 	abilityBuilder: <P extends boolean = false>(options: AbilityEntry<P>) => AbilityEntry = (
 		options
 	) => {

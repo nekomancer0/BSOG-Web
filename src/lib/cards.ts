@@ -1,6 +1,6 @@
 // Ability decorator to make the method a card ability
 
-import { Hero, Spell, Artifact, Companion, type Type, Unit } from './types';
+import { Hero, Spell, Companion, Unit } from './types';
 
 export const Relief = new Spell({
 	name: 'Relief',

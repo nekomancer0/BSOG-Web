@@ -9,7 +9,7 @@
 	let board: Board | null = $state(null);
 	let hand: any[] = $state([]);
 	let previewImage: string | null = $state(null);
-	let selectedCard: any = $state(null);
+	let selectedCard: BaseThing<any> | null = $state(null);
 	let myResources: AbilityCost = $state([]);
 	let phase: 'Draw' | 'Main' | 'Combat' | 'End' = $state('Draw');
 	let physicalUnits: HTMLDivElement[] = $state([]);
@@ -139,16 +139,17 @@
 		isProcessing = true;
 
 		try {
-			if (selectedCard && (selectedCard.type === 'Hero' || selectedCard.type === 'Companion')) {
+			if (selectedCard && (selectedCard.isHero() || selectedCard.isCompanion())) {
 				// Handle unit placement
 				const success = board.placeUnit(selectedCard, { x, y });
 				if (success) {
-					hand = hand.filter((c) => c.name !== selectedCard.name);
+					hand = hand.filter((c) => c.name !== selectedCard?.name);
 					selectedCard = null;
 				}
 			} else if (selectedUnit) {
 				// Handle unit movement
 				const targetPos = { x, y };
+
 				if (validMoves.some((pos) => pos.x === x && pos.y === y)) {
 					const success = board.moveUnit(selectedUnit, targetPos);
 					if (success) {
