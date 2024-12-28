@@ -39,6 +39,10 @@ export class Board extends EventTarget implements BoardInterface {
 		this.setupEventListeners();
 	}
 
+	setDeck(deck: any[]) {
+		this.deck = [...deck];
+	}
+
 	on(event: string, callback: (...args: any[]) => void): void {
 		// @ts-ignore
 		this.addEventListener(event, (e: CustomEvent) => {
@@ -71,8 +75,8 @@ export class Board extends EventTarget implements BoardInterface {
 		if (this.currentPhase === 'Draw') {
 			this.currentTurn++;
 			this.emit('turnStart');
-			// Draw a card
-			this.emit('drawCard');
+			// Draw a card at the start of Draw phase
+			this.drawCard();
 		}
 
 		// Emit the phase change event
@@ -100,9 +104,17 @@ export class Board extends EventTarget implements BoardInterface {
 		}
 	}
 
-	drawCard() {
-		this.hand.push(this.deck.pop());
-		this.advancePhase();
+	drawCard(): void {
+		if (this.deck.length === 0) {
+			console.warn('No cards left in deck!');
+			return;
+		}
+
+		const drawnCard = this.deck.pop();
+		if (drawnCard) {
+			this.hand.push(drawnCard);
+			this.emit('drawCard', drawnCard);
+		}
 	}
 
 	/**

@@ -37,8 +37,14 @@
 
 		// Get deck and hand
 		const deck = await generateDeckForRyuu();
-		console.log(deck);
-		hand = [...deck].filter((c) => typeof c !== 'undefined');
+		board.setDeck(deck); // Set the deck in the board
+
+		// Draw initial hand
+		for (let i = 0; i < 4; i++) {
+			board.drawCard();
+		}
+
+		hand = [...board.hand];
 
 		// Put first units on the DOM
 
@@ -129,8 +135,7 @@
 
 	$effect(() => {
 		if (!board) return;
-
-		hand = board.hand.filter((c) => typeof c !== 'undefined');
+		hand = [...board.hand];
 	});
 
 	function handleTileClick(x: number, y: number) {
