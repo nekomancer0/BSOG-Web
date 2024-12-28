@@ -132,7 +132,6 @@ export class Board extends EventTarget implements BoardInterface {
 		return this.units.find((unit) => unit.pos?.x === pos.x && unit.pos?.y === pos.y);
 	}
 
-	// Check if a unit can move to a position
 	canMoveTo(unit: Unit, targetPos: { x: number; y: number }): boolean {
 		if (!unit.pos || !this.isValidPosition(targetPos)) return false;
 
@@ -144,20 +143,25 @@ export class Board extends EventTarget implements BoardInterface {
 
 		// Check if target position is occupied
 		const occupyingUnit = this.getUnitAt(targetPos);
-		if (occupyingUnit) return false;
+		if (occupyingUnit) {
+			// Can't move to a space occupied by any unit (ally or enemy)
+			return false;
+		}
 
 		return true;
 	}
 
-	// Check if a unit can attack a target position
 	canAttack(unit: Unit, targetPos: { x: number; y: number }): boolean {
 		if (!unit.pos || !this.isValidPosition(targetPos)) return false;
 
 		// Calculate distance
 		const distance = this.calculateDistance(unit.pos, targetPos);
 
-		const occupyingUnit = this.getUnitAt(targetPos);
-		if (!occupyingUnit) return false;
+		const targetUnit = this.getUnitAt(targetPos);
+		if (!targetUnit) return false;
+
+		// Can only attack enemy units
+		if (targetUnit.team === unit.team) return false;
 
 		// Check if target is within attack range
 		return distance <= unit.stats.range;
@@ -308,6 +312,10 @@ export class Board extends EventTarget implements BoardInterface {
 					entry.land.emit('unitEnter', unit);
 				}
 			});
+		});
+
+		this.on('drawCard', () => {
+			this.drawCard();
 		});
 	}
 }

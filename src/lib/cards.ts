@@ -29,7 +29,8 @@ export const Ryuu = new Hero({
 		range: 2,
 		movement: 2
 	},
-	type: 'Hero'
+	type: 'Hero',
+	team: 'ally'
 })
 	.addAbility({
 		name: "Ryuu's Blessing",
@@ -77,5 +78,6 @@ export const DummyCompanion = new Companion({
 		atk: 2,
 		range: 1,
 		movement: 2
-	}
+	},
+	team: 'ally'
 });

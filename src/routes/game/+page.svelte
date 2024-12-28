@@ -37,7 +37,8 @@
 
 		// Get deck and hand
 		const deck = await generateDeckForRyuu();
-		hand = [...deck.slice(0, 4), Cards.DummyCompanion].filter((c) => typeof c !== 'undefined');
+		console.log(deck);
+		hand = [...deck].filter((c) => typeof c !== 'undefined');
 
 		// Put first units on the DOM
 
@@ -213,6 +214,10 @@
 
 		try {
 			if (selectedUnit === unit) {
+				selectedUnit = null;
+				validMoves = [];
+				validAttacks = [];
+			} else if (selectedUnit) {
 				selectedUnit = null;
 				validMoves = [];
 				validAttacks = [];

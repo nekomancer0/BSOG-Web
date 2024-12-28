@@ -7,6 +7,8 @@ export type AbilityCost = {
 	amount: number;
 }[];
 
+export type Team = 'ally' | 'enemy';
+
 export type Effect<T = any> = (...data: T[]) => void;
 export type Category = 'Hero' | 'Companion' | 'Spell' | 'Artifact';
 export type AbilityEntry<P extends boolean = boolean> = P extends false
@@ -126,6 +128,8 @@ export abstract class Unit<
 			: undefined;
 
 	abilities: AbilityEntry[] = [];
+	abstract team: Team;
+	uniqueId: string;
 
 	abstract element: Type;
 	abstract pos?: {
@@ -140,6 +144,8 @@ export abstract class Unit<
 		this.on('statsUpdate', (data) => {
 			this.fixDodge();
 		});
+
+		this.uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 	}
 
 	isHero(): this is Unit<'Hero'> {
@@ -229,6 +235,7 @@ export namespace Options {
 			movement: number;
 			dodge: number;
 		};
+		team: Team;
 	}
 
 	export interface Companion<T extends Type> {
@@ -245,6 +252,7 @@ export namespace Options {
 			movement: number;
 		};
 		cost: AbilityCost;
+		team: Team;
 	}
 
 	export interface Artifact<T extends Type> {
@@ -302,6 +310,7 @@ export class Companion<T extends Type> extends Unit<'Companion'> {
 		range: number;
 		movement: number;
 	};
+	team: Team;
 
 	type: 'Companion' = 'Companion';
 
@@ -318,6 +327,7 @@ export class Companion<T extends Type> extends Unit<'Companion'> {
 		this.type = options.type;
 		this.stats = options.stats;
 		this.cost = options.cost;
+		this.team = options.team;
 	}
 }
 
@@ -357,6 +367,7 @@ export class Hero<T extends Type> extends Unit<'Hero'> {
 		movement: number;
 		dodge: number;
 	};
+	team: Team;
 	cost: undefined;
 
 	type: 'Hero' = 'Hero';
@@ -372,6 +383,7 @@ export class Hero<T extends Type> extends Unit<'Hero'> {
 		this.name = options.name;
 		this.type = options.type;
 		this.stats = options.stats;
+		this.team = options.team;
 	}
 }
 
