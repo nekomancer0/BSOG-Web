@@ -3,16 +3,17 @@
 	import { Board } from '$lib/board';
 	import * as Cards from '$lib/cards';
 	import { generateDeckForRyuu } from '$lib/decks';
-	import { BaseThing, Unit, type AbilityCost, type Type } from '$lib/types';
+	import { BaseThing, Unit, type AbilityCost, type LandEntry, type Type } from '$lib/types';
 	import { onMount } from 'svelte';
 
 	let board: Board | null = $state(null);
-	let hand: any[] = $state([]);
+	let hand: BaseThing<any>[] = $state([]);
 	let previewImage: string | null = $state(null);
 	let selectedCard: BaseThing<any> | null = $state(null);
 	let myResources: AbilityCost = $state([]);
 	let phase: 'Draw' | 'Main' | 'Combat' | 'End' = $state('Draw');
 	let physicalUnits: HTMLDivElement[] = $state([]);
+	let lands: LandEntry[] = $state([]);
 
 	let selectedUnit: Unit | null = $state(null);
 	let validMoves: Array<{ x: number; y: number }> = $state([]);
@@ -30,6 +31,9 @@
 		// Initialize board
 		board = new Board();
 
+		// Initialize lands
+		lands = [...board.lands];
+
 		// Place Ryuu on the board with zero-based coordinates
 		const ryuu = Cards.Ryuu;
 		ryuu.pos = { x: 2, y: 2 }; // Was { x: 3, y: 3 }
@@ -42,9 +46,8 @@
 		// Draw initial hand
 		for (let i = 0; i < 4; i++) {
 			board.drawCard();
+			hand = [...board.hand];
 		}
-
-		hand = [...board.hand];
 
 		// Put first units on the DOM
 
@@ -107,6 +110,14 @@
 
 			physicalUnits.push(unitDiv);
 		});
+
+		board.on('landUpdate', (landsx: LandEntry[]) => {
+			lands = landsx;
+		});
+
+		board.on('drawCard', () => {
+			hand = board?.hand!;
+		});
 	});
 
 	let i = 0;
@@ -133,11 +144,6 @@
 		}
 	});
 
-	$effect(() => {
-		if (!board) return;
-		hand = [...board.hand];
-	});
-
 	function handleTileClick(x: number, y: number) {
 		if (!board) return;
 		if (isProcessing) return;
@@ -145,12 +151,21 @@
 		isProcessing = true;
 
 		try {
-			if (selectedCard && (selectedCard.isHero() || selectedCard.isCompanion())) {
-				// Handle unit placement
-				const success = board.placeUnit(selectedCard, { x, y });
-				if (success) {
-					hand = hand.filter((c) => c.name !== selectedCard?.name);
-					selectedCard = null;
+			if (selectedCard) {
+				if (selectedCard.isHero() || selectedCard.isCompanion()) {
+					// Handle unit placement
+					const success = board.placeUnit(selectedCard, { x, y });
+					if (success) {
+						hand = hand.filter((c) => c !== selectedCard);
+						selectedCard = null;
+					}
+				} else if (selectedCard.isLand()) {
+					// Handle land placement
+					const success = board.playLand(selectedCard, { x, y });
+					if (success) {
+						hand = hand.filter((c) => c !== selectedCard);
+						selectedCard = null;
+					}
 				}
 			} else if (selectedUnit) {
 				// Handle unit movement
@@ -159,10 +174,9 @@
 				if (validMoves.some((pos) => pos.x === x && pos.y === y)) {
 					const success = board.moveUnit(selectedUnit, targetPos);
 					if (success) {
-						// Force a UI update by creating a new reference
-
 						// Clear selection after successful move
 						selectedUnit = null;
+
 						validMoves = [];
 						validAttacks = [];
 					}
@@ -198,12 +212,6 @@
 		phase = board.currentPhase;
 	}
 
-	// Add an effect to sync phase with board
-	$effect(() => {
-		if (!board) return;
-		phase = board.currentPhase;
-	});
-
 	function handlePreview(imageUrl: string) {
 		previewImage = imageUrl;
 	}
@@ -216,6 +224,17 @@
 		if (!board) return;
 		if (isProcessing) return;
 		isProcessing = true;
+
+		if (unit.hasAttacked || unit.hasMoved) {
+			setTimeout(() => {
+				isProcessing = false;
+			}, 100);
+
+			selectedUnit = null;
+			validMoves = [];
+			validAttacks = [];
+			return;
+		}
 
 		try {
 			if (selectedUnit === unit) {
@@ -283,24 +302,25 @@
 	{/if}
 
 	<div class="board">
-		{#if board}
-			{#each { length: 8 }, x}
+		{#if board && lands.length > 0}
+			{#each { length: 8 } as _, x}
 				<div class="col col-{x}">
-					{#each { length: 8 }, y}
+					{#each { length: 8 } as _, y}
 						<!-- svelte-ignore a11y_click_events_have_key_events -->
 						<!-- svelte-ignore a11y_no_static_element_interactions -->
 						<div
 							class="tile row row-{y}"
-							class:valid-move={validMoves.some((pos) => pos.x === x && pos.y === y)}
-							class:valid-attack={validAttacks.some((pos) => pos.x === x && pos.y === y)}
+							class:valid-move={validMoves.some((move) => move.x === x && move.y === y)}
+							class:valid-attack={validAttacks.some((attack) => attack.x === x && attack.y === y)}
 							onclick={() => handleTileClick(x, y)}
 						>
 							<!-- Land -->
 							<img
 								class="land"
-								src={`/lands/${board?.lands.find((l) => l.pos.x === x && l.pos.y === y)?.land.id}.png`}
+								src={`${lands.find((l) => l.pos.x === x && l.pos.y === y)?.land.image}`}
 								alt="Land"
 							/>
+							<!-- ... rest of tile content ... -->
 						</div>
 					{/each}
 				</div>
@@ -315,7 +335,7 @@
 				<!-- svelte-ignore a11y_click_events_have_key_events -->
 				<div
 					class="card"
-					class:selected={selectedCard === card}
+					class:selected={selectedCard?._uniqueId === card._uniqueId}
 					onclick={() => (selectedCard = card)}
 					onmouseenter={() => handlePreview(card.image)}
 					onmouseleave={clearPreview}

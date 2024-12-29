@@ -1,9 +1,17 @@
-import type { BoardInterface, LandEntry, Type, Unit } from './types';
+import type { BoardInterface, Land, LandEntry, Type, Unit } from './types';
 import * as Lands from './lands';
 import * as Cards from './cards';
 
+export function uniqueId() {
+	return Math.random().toString(36).slice(2);
+}
+
 type BoardEvents = {
-	unitMove: (unit: Unit, position: { x: number; y: number }) => void;
+	unitMove: (
+		unit: Unit,
+		position: { x: number; y: number },
+		oldPosition: { x: number; y: number }
+	) => void;
 	unitSpawn: (unit: Unit) => void;
 	unitDelete: (unit: Unit) => void;
 	turnEnd: () => void;
@@ -11,6 +19,7 @@ type BoardEvents = {
 	phaseChange: (phase: 'Draw' | 'Main' | 'Combat' | 'End') => void;
 	drawCard: () => void;
 	turnStart: () => void;
+	landUpdate: (lands: LandEntry[]) => void;
 };
 
 /**
@@ -40,18 +49,20 @@ export class Board extends EventTarget implements BoardInterface {
 	}
 
 	setDeck(deck: any[]) {
-		this.deck = [...deck];
+		this.deck = deck;
 	}
 
-	on(event: string, callback: (...args: any[]) => void): void {
+	on(event: keyof BoardEvents, callback: BoardEvents[keyof BoardEvents]): void {
 		// @ts-ignore
 		this.addEventListener(event, (e: CustomEvent) => {
 			// Extract the details and pass them directly to the callback
+
+			// @ts-ignore
 			callback(...e.detail);
 		});
 	}
 
-	emit(event: string, ...args: any[]): void {
+	emit(event: keyof BoardEvents, ...args: Parameters<BoardEvents[keyof BoardEvents]>): void {
 		this.dispatchEvent(
 			new CustomEvent(event, {
 				detail: args
@@ -75,6 +86,10 @@ export class Board extends EventTarget implements BoardInterface {
 		if (this.currentPhase === 'Draw') {
 			this.currentTurn++;
 			this.emit('turnStart');
+
+			this.units.forEach((unit) => {
+				unit.emit('turnStart');
+			});
 			// Draw a card at the start of Draw phase
 			this.drawCard();
 		}
@@ -90,8 +105,8 @@ export class Board extends EventTarget implements BoardInterface {
 			case 'Main':
 				// Reset movement/action flags for units
 				this.units.forEach((unit) => {
-					// unit.hasMoved = false;
-					// unit.hasActed = false;
+					unit.hasMoved = false;
+					unit.hasAttacked = false;
 				});
 				break;
 			case 'Combat':
@@ -111,7 +126,9 @@ export class Board extends EventTarget implements BoardInterface {
 		}
 
 		const drawnCard = this.deck.pop();
+		console.log('Drawn card:', drawnCard);
 		if (drawnCard) {
+			drawnCard.uniqueId = uniqueId();
 			this.hand.push(drawnCard);
 			this.emit('drawCard', drawnCard);
 		}
@@ -191,7 +208,8 @@ export class Board extends EventTarget implements BoardInterface {
 		unit.pos = newPos;
 
 		// Emit move event
-		this.emit('unitMove', unit, newPos, oldPos);
+		this.emit('unitMove', unit, newPos, oldPos!);
+		unit.emit('move', newPos, oldPos!);
 
 		// Handle old land exit effects if needed
 		const oldLandEntry = this.lands.find((l) => l.pos.x === oldPos?.x && l.pos.y === oldPos?.y);
@@ -270,48 +288,27 @@ export class Board extends EventTarget implements BoardInterface {
 		}
 	}
 
-	/**
-	 * Permet à un joueur de jouer une carte terrain spécifique.
-	 * @param land - La carte terrain à placer.
-	 * @param position - La position où placer le terrain.
-	 */
-	playLand(
-		land: (typeof Lands)[keyof typeof Lands],
-		position: { x: number; y: number }
-	): typeof this.lands | void {
+	playLand(land: Land<any>, position: { x: number; y: number }): boolean {
 		const targetEntry = this.lands.find(
 			(entry) => entry.pos.x === position.x && entry.pos.y === position.y
 		);
 
 		if (!targetEntry) {
-			console.warn('Position invalide pour jouer ce terrain.');
-			return;
+			console.warn('Invalid position for land placement');
+			return false;
 		}
 
-		// Placer le nouveau terrain
-		// Mettre à jour le terrain dans la liste
+		// Update the land in the list
 		this.lands = this.lands.map((entry) => {
 			if (entry.pos.x === position.x && entry.pos.y === position.y) {
-				return { ...entry, land };
+				return { pos: entry.pos, land };
 			}
 			return entry;
 		});
 
-		// Mettre à jour le terrain sur le plateau
-		targetEntry.land = land;
-
-		if (land.id === '1') {
-			console.log('Un piège a été placé !');
-			land.once('trigger', () => {
-				// Suppression du piège après son effet
-				this.lands = this.lands.filter(
-					(entry) => entry.pos.x !== position.x || entry.pos.y !== position.y
-				);
-				console.log('Le piège a été déclenché et supprimé.');
-			});
-		}
-
-		return this.lands;
+		// Emit land update event
+		this.emit('landUpdate', this.lands);
+		return true;
 	}
 
 	/**
@@ -326,8 +323,25 @@ export class Board extends EventTarget implements BoardInterface {
 			});
 		});
 
-		this.on('drawCard', () => {
-			this.drawCard();
+		this.on('landUpdate', () => {
+			this.lands.forEach((entry) => {
+				entry.land.on('destroy', () => {
+					this.lands = this.lands.filter((l) => l.pos.x !== entry.pos.x || l.pos.y !== entry.pos.y);
+					this.lands.push({ pos: entry.pos, land: Lands.Steppes });
+					this.emit('landUpdate', this.lands);
+				});
+			});
+		});
+
+		this.lands.forEach((entry) => {
+			entry.land.on('destroy', () => {
+				this.lands = this.lands.filter((l) => l.pos.x !== entry.pos.x || l.pos.y !== entry.pos.y);
+
+				// Replace by Steppes
+
+				this.lands.push({ pos: entry.pos, land: Lands.Steppes });
+				this.emit('landUpdate', this.lands);
+			});
 		});
 	}
 }

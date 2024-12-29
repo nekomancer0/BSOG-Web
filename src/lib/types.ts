@@ -35,9 +35,18 @@ export abstract class BaseThing<C extends Category | 'Land'> extends EventTarget
 	abstract id: string | number;
 	abstract cost: C extends 'Hero' | 'Land' ? undefined : { type: Type; amount: number }[];
 
+	_uniqueId: string | null = null;
 	once(event: string, callback: (...args: any[]) => void): void {
 		// @ts-ignore
 		this.addEventListener(event, callback, { once: true });
+	}
+
+	set uniqueId(value: string) {
+		this._uniqueId = value;
+	}
+
+	get uniqueId(): string | null {
+		return this._uniqueId;
 	}
 
 	isHero(): this is Unit<'Hero'> {
@@ -129,14 +138,17 @@ export abstract class Unit<
 
 	abilities: AbilityEntry[] = [];
 	abstract team: Team;
-	uniqueId: string;
 
+	affectBy: string | null = null;
 	abstract element: Type;
 	abstract pos?: {
 		x: number;
 		y: number;
 	};
 	abstract type: C;
+
+	hasMoved = false;
+	hasAttacked = false;
 
 	constructor() {
 		super();
@@ -145,7 +157,17 @@ export abstract class Unit<
 			this.fixDodge();
 		});
 
-		this.uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+		this.on('move', () => {
+			this.hasMoved = true;
+		});
+
+		this.on('attack', () => {
+			this.hasAttacked = true;
+		});
+	}
+
+	affect(name: string) {
+		this.affectBy = name;
 	}
 
 	isHero(): this is Unit<'Hero'> {
@@ -400,12 +422,6 @@ export class Land<T extends Type> extends BaseThing<'Land'> {
 
 	effect: (...args: any[]) => any | void;
 
-	on(event: 'unitEnter', callback: (unit: Unit<'Companion' | 'Hero'>) => void): void;
-	on(event: 'unitExit', callback: (unit: Unit<'Companion' | 'Hero'>) => void): void;
-	on(event: string, callback: (...args: any[]) => void): void {
-		super.addEventListener(event, callback);
-	}
-
 	constructor(options: Options.Land<T>) {
 		super();
 
@@ -417,7 +433,7 @@ export class Land<T extends Type> extends BaseThing<'Land'> {
 		this.effect = options.effect;
 
 		this.on('unitEnter', (unit) => {
-			this.effect({ units: [unit] });
+			this.effect(unit);
 			this.emit('trigger');
 		});
 	}
